@@ -1,13 +1,17 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import Image from "next/image";
 import { clearCart, MAX_ITEMS, MAX_QTY, readCart, setItemQuantity, useCart } from "@/lib/cart";
-import CheckoutPanel from "@/app/product/[slug]/CheckoutPanel";
 import { SITE, hasValue } from "@/lib/site";
 import { DISCOUNT_MIN_QTY } from "@/lib/discount";
 
+// Checkout code is downloaded only when "order" is pressed for the first time
+const CheckoutPanel = dynamic(() => import("@/app/product/[slug]/CheckoutPanel"), { ssr: false });
+
 const INITIAL_VISIBLE = 40;
+const EAGER_THUMBS = 10; // first two rows (5 per row on desktop)
 const GOLD = "#b8860b";
 // Latin digits on purpose: the Bangla "১" is hard to read at button size in this font
 const bn = (n) => String(n);
@@ -55,11 +59,36 @@ function ZoomDialog({ design, onClose }) {
   );
 }
 
-function ImageBox({ design, sizes, priority = false }) {
-  return design.image ? (
-    <Image src={design.image} alt={`ডিজাইন ${label(design)}`} fill sizes={sizes} priority={priority} className="object-cover" />
-  ) : (
-    <span className="flex h-full items-center justify-center text-xs text-neutral-500">ছবি নেই</span>
+// Cream placeholder with the design number; the photo fades in over it once loaded.
+// With no image URL only the placeholder is shown.
+function FadeImage({ design, width, height, sizes, quality, loading, fetchPriority, numberClass }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className={`absolute inset-0 flex items-center justify-center bg-[#fbf5e6] font-bold text-[#b8860b]/60 ${numberClass}`}
+      >
+        {label(design)}
+      </span>
+      {design.image ? (
+        <Image
+          src={design.image}
+          alt={`ডিজাইন ${label(design)}`}
+          width={width}
+          height={height}
+          sizes={sizes}
+          quality={quality}
+          loading={loading}
+          fetchPriority={fetchPriority}
+          onLoad={() => setLoaded(true)}
+          className={`relative h-full w-full object-cover transition-opacity duration-300 ${
+            loaded ? "opacity-100" : "opacity-0"
+          }`}
+        />
+      ) : null}
+    </>
   );
 }
 
@@ -77,6 +106,7 @@ export default function CollectionPicker({ designs, title, price }) {
   const [message, setMessage] = useState("");
   // Snapshot of the cart taken when the popup opens, so it stays stable while ordering
   const [checkoutItems, setCheckoutItems] = useState(null);
+  const [checkoutLoaded, setCheckoutLoaded] = useState(false);
 
   const designIds = new Set(designs.map((design) => design.id));
   const selected = (items ?? []).filter((item) => designIds.has(item.id));
@@ -109,10 +139,6 @@ export default function CollectionPicker({ designs, title, price }) {
 
   function toggle(design) {
     setActiveId(design.id);
-    if (!design.inStock) {
-      setMessage(`ডিজাইন ${label(design)} এই মুহূর্তে স্টকে নেই।`);
-      return;
-    }
     setMessage("");
 
     run(() => {
@@ -150,6 +176,7 @@ export default function CollectionPicker({ designs, title, price }) {
 
   // Opens the same checkout popup as other products, for everything in the cart
   function openCheckout() {
+    setCheckoutLoaded(true);
     setCheckoutItems(
       (items ?? []).map(({ id, name, price, quantity, hijab }) => ({
         id,
@@ -175,8 +202,18 @@ export default function CollectionPicker({ designs, title, price }) {
     <div className="grid gap-6 md:grid-cols-2 md:gap-8">
       {/* Main image */}
       <div className="md:sticky md:top-20 md:self-start">
-        <div className="relative aspect-[3/4] overflow-hidden rounded-xl bg-neutral-200 shadow-sm">
-          <ImageBox design={active} sizes="(min-width: 768px) 560px, 100vw" priority />
+        <div className="relative aspect-[3/4] overflow-hidden rounded-xl shadow-sm">
+          {/* LCP image: fetched early without preload/priority; key resets the fade per design */}
+          <FadeImage
+            key={active.id}
+            design={active}
+            width={560}
+            height={747}
+            sizes="(min-width: 768px) 560px, 100vw"
+            loading="eager"
+            fetchPriority="high"
+            numberClass="text-6xl"
+          />
           {active.image ? (
             <button
               type="button"
@@ -280,7 +317,7 @@ export default function CollectionPicker({ designs, title, price }) {
         ) : null}
 
         <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5">
-          {visible.map((design) => {
+          {visible.map((design, index) => {
             const isSelected = selectedIds.has(design.id);
             return (
               <li key={design.id}>
@@ -289,11 +326,22 @@ export default function CollectionPicker({ designs, title, price }) {
                   onClick={() => toggle(design)}
                   aria-pressed={isSelected}
                   aria-label={`ডিজাইন ${label(design)}${isSelected ? " — বাছাই করা" : ""}`}
-                  className={`relative block aspect-[3/4] w-full overflow-hidden rounded-lg border-2 bg-neutral-200 transition ${
+                  className={`relative block aspect-[3/4] w-full overflow-hidden rounded-lg border-2 transition ${
                     isSelected ? "border-[#b8860b] ring-2 ring-[#b8860b]/40" : "border-transparent hover:border-neutral-400"
-                  } ${design.inStock ? "" : "opacity-40"}`}
+                  }`}
                 >
-                  <ImageBox design={design} sizes="(min-width: 768px) 105px, 23vw" />
+                  <FadeImage
+                    design={design}
+                    width={210}
+                    height={280}
+                    sizes="(min-width: 768px) 105px, 23vw"
+                    quality={70}
+                    loading={index < EAGER_THUMBS ? "eager" : "lazy"}
+                    // "low" keeps React from adding <link rel=preload> for eager thumbnails,
+                    // so they don't compete with the main (LCP) image
+                    fetchPriority={index < EAGER_THUMBS ? "low" : undefined}
+                    numberClass="text-lg"
+                  />
                   {isSelected ? (
                     <span className="absolute right-1 top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#b8860b] px-1 text-xs font-bold text-white">
                       {quantityOf.get(design.id) > 1 ? `×${quantityOf.get(design.id)}` : "✓"}
@@ -378,18 +426,21 @@ export default function CollectionPicker({ designs, title, price }) {
 
       {zoomed ? <ZoomDialog design={zoomed} onClose={() => setZoomed(null)} /> : null}
 
-      <CheckoutPanel
-        items={checkoutItems ?? []}
-        open={checkoutItems !== null}
-        onClose={() => setCheckoutItems(null)}
-        onSuccess={() => {
-          try {
-            clearCart();
-          } catch {
-            // Order already placed; a stale cart is harmless
-          }
-        }}
-      />
+      {/* Mounted (and its code downloaded) only after the first "order" click */}
+      {checkoutLoaded ? (
+        <CheckoutPanel
+          items={checkoutItems ?? []}
+          open={checkoutItems !== null}
+          onClose={() => setCheckoutItems(null)}
+          onSuccess={() => {
+            try {
+              clearCart();
+            } catch {
+              // Order already placed; a stale cart is harmless
+            }
+          }}
+        />
+      ) : null}
     </div>
   );
 }

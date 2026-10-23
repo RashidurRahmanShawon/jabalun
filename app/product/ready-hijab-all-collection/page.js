@@ -32,19 +32,21 @@ async function loadDesigns() {
   try {
     const products = await loadCategory(DISCOUNT_CATEGORY_SLUG, 100);
 
-    const designs = products.map((product) => {
-      const name = decodeEntities(product.name || "");
-      return {
-        id: product.id,
-        slug: product.slug,
-        name,
-        number: designNumber(name),
-        price: product.price,
-        image: product.images?.[0]?.src ?? null,
-        inStock: Boolean(product.purchasable) && product.stock_status !== "outofstock",
-        description: product.description || "",
-      };
-    });
+    // Out-of-stock designs are left out here, so no stock data needs to reach the browser
+    const designs = products
+      .filter((product) => product.purchasable && product.stock_status !== "outofstock")
+      .map((product) => {
+        const name = decodeEntities(product.name || "");
+        return {
+          id: product.id,
+          slug: product.slug,
+          name,
+          number: designNumber(name),
+          price: product.price,
+          image: product.images?.[0]?.src ?? null,
+          description: product.description || "",
+        };
+      });
 
     // By design number, ascending; products without a number go last
     designs.sort((a, b) => {
@@ -83,7 +85,15 @@ export default async function ReadyHijabCollectionPage() {
     : "সুতি হিজাব। ডেলিভারী চার্জ ফ্রি।";
   // All designs share one description; show the first one that has it
   const description = designs.find((design) => design.description)?.description ?? "";
-  const pickerDesigns = designs.map((design) => ({ ...design, description: undefined }));
+  // Only id, slug, name, number, price and image URL reach the client
+  const pickerDesigns = designs.map(({ id, slug, name, number, price, image }) => ({
+    id,
+    slug,
+    name,
+    number,
+    price,
+    image,
+  }));
 
   return (
     <main className="flex-1 bg-[#eef6ee]">
