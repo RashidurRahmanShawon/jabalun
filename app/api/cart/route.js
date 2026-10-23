@@ -1,5 +1,6 @@
 import { getProductsByIds } from "@/lib/woo";
 import { CART_MAX_ITEMS as MAX_ITEMS } from "@/lib/site";
+import { isDiscountProduct } from "@/lib/discount";
 
 // GET /api/cart?ids=1,2,3 — current public price and availability for cart items.
 // Returns only public product data; no keys or customer data.
@@ -21,6 +22,7 @@ export async function GET(request) {
         id: product.id,
         price: product.price,
         inStock: Boolean(product.purchasable) && product.stock_status !== "outofstock",
+        eligible: isDiscountProduct(product.categories),
       }));
     return Response.json({ items }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {

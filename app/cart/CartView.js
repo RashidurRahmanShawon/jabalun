@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { clearCart, MAX_QTY, removeFromCart, setQuantity, useCart } from "@/lib/cart";
 import { formatTaka } from "@/lib/text";
+import { calcDiscount, DISCOUNT_LABEL } from "@/lib/discount";
 import CheckoutPanel from "@/app/product/[slug]/CheckoutPanel";
 
 const STORAGE_ERROR = "কার্ট আপডেট করা যায়নি। ব্রাউজারের স্টোরেজ বন্ধ থাকতে পারে।";
@@ -78,10 +79,11 @@ export default function CartView() {
     const current = live && !failed ? live.get(item.id) : undefined;
     const unavailable = Boolean(live && !failed && (!current || !current.inStock));
     const price = current?.price || item.price;
-    return { ...item, price, unavailable };
+    const eligible = current ? current.eligible : item.hijab;
+    return { ...item, price, eligible, unavailable };
   });
   const orderable = rows.filter((row) => !row.unavailable);
-  const total = orderable.reduce((sum, row) => sum + Number(row.price || 0) * row.quantity, 0);
+  const { subtotal, discount, total } = calcDiscount(orderable);
 
   return (
     <>
@@ -156,6 +158,18 @@ export default function CartView() {
       {error ? <p role="alert" className="mt-4 text-sm text-red-600">{error}</p> : null}
 
       <div className="mt-6 rounded-2xl bg-neutral-50 p-5">
+        {discount > 0 ? (
+          <div className="mb-2 space-y-1 text-sm">
+            <div className="flex justify-between text-neutral-600">
+              <span>পণ্যের মূল্য</span>
+              <span>{formatTaka(subtotal)}</span>
+            </div>
+            <div className="flex justify-between font-medium text-green-700">
+              <span>{DISCOUNT_LABEL}</span>
+              <span>−{formatTaka(discount)}</span>
+            </div>
+          </div>
+        ) : null}
         <div className="flex items-center justify-between text-lg">
           <span className="font-semibold text-neutral-900">মোট মূল্য</span>
           <span className="font-bold text-neutral-900">{formatTaka(total)}</span>
@@ -177,7 +191,7 @@ export default function CartView() {
       </div>
 
       <CheckoutPanel
-        items={orderable.map(({ id, name, price, quantity }) => ({ id, name, price, quantity }))}
+        items={orderable.map(({ id, name, price, quantity, eligible }) => ({ id, name, price, quantity, eligible }))}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         onSuccess={() => {

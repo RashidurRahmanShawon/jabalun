@@ -65,6 +65,14 @@ export default async function ThankYouPage({ searchParams }) {
                   ))}
                 </dd>
               </div>
+              {(order.fee_lines ?? [])
+                .filter((fee) => Number(fee.total) < 0)
+                .map((fee) => (
+                  <div key={fee.id} className="flex justify-between gap-4 px-4 py-3">
+                    <dt className="text-neutral-500">ছাড় ({fee.name})</dt>
+                    <dd className="font-medium text-green-700">−{formatTaka(Math.abs(Number(fee.total)))}</dd>
+                  </div>
+                ))}
               <div className="flex justify-between gap-4 px-4 py-3">
                 <dt className="text-neutral-500">মোট দাম</dt>
                 <dd className="font-semibold text-neutral-900">{formatTaka(order.total)}</dd>

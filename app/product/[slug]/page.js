@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { getProductBySlug, getRelatedProducts } from "@/lib/woo";
 import { decodeEntities, formatTaka, stripTags } from "@/lib/text";
 import ProductCard from "@/components/ProductCard";
+import { isDiscountProduct } from "@/lib/discount";
 import ProductActions from "./ProductActions";
 
 export const revalidate = 300;
@@ -61,6 +62,7 @@ export default async function ProductPage({ params }) {
     name,
     price: product.price,
     image: image?.src ?? null,
+    hijab: isDiscountProduct(product.categories),
   };
 
   return (

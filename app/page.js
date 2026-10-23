@@ -31,6 +31,7 @@ const SECTIONS = [
     slug: "instant-ready-hijab",
     title: "ইনস্ট্যান্ট রেডি হিজাব",
     description: "পিন বা ঝামেলা ছাড়াই মুহূর্তেই পরে নিন — আরামদায়ক কাপড়ে তৈরি রেডি হিজাব।",
+    allDesignsHref: "/product/ready-hijab-all-collection",
   },
 ];
 
@@ -144,7 +145,7 @@ function CategoryTabs() {
 }
 
 function CategorySection({ section }) {
-  const { id, slug, title, description, products, failed } = section;
+  const { id, slug, title, description, allDesignsHref, products, failed } = section;
 
   return (
     <section id={id} className="scroll-mt-36 even:bg-neutral-50">
@@ -152,6 +153,14 @@ function CategorySection({ section }) {
         <div className="mb-8 text-center">
           <h2 className="text-3xl font-bold text-neutral-900">{title}</h2>
           <p className="mx-auto mt-3 max-w-2xl text-neutral-600">{description}</p>
+          {allDesignsHref ? (
+            <Link
+              href={allDesignsHref}
+              className="mt-5 inline-block rounded-full bg-[#b45309] px-6 py-2.5 font-semibold text-white transition hover:bg-[#92400e]"
+            >
+              সব ডিজাইন দেখুন
+            </Link>
+          ) : null}
         </div>
 
         {products.length > 0 ? (

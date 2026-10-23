@@ -63,7 +63,9 @@ export default function ProductActions({ product, inStock }) {
 
       {/* "Buy now" orders just this product and leaves the cart untouched */}
       <CheckoutPanel
-        items={[{ id: product.id, name: product.name, price: product.price, quantity: 1 }]}
+        items={[
+          { id: product.id, name: product.name, price: product.price, quantity: 1, eligible: product.hijab },
+        ]}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
       />

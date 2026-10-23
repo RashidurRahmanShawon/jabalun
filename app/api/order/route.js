@@ -1,10 +1,12 @@
 import { createOrder, getProductsByIds } from "@/lib/woo";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { decodeEntities } from "@/lib/text";
+import { calcDiscount, DISCOUNT_LABEL, isDiscountProduct } from "@/lib/discount";
 import { CART_MAX_ITEMS as MAX_ITEMS, CART_MAX_QTY as MAX_QTY } from "@/lib/site";
 
 const MAX_NAME = 100;
 const MAX_ADDRESS = 300;
+const MAX_NOTE = 300;
 
 const GENERIC_ERROR = "দুঃখিত, অর্ডারটি সম্পন্ন করা যায়নি। একটু পরে আবার চেষ্টা করুন।";
 
@@ -78,6 +80,7 @@ export async function POST(request) {
   const name = cleanText(body.name);
   const address = cleanText(body.address);
   const phone = normalizePhone(cleanText(body.phone));
+  const note = cleanText(body.note); // optional
 
   if (!items) {
     return fail("পণ্যটি সঠিক নয়।");
@@ -88,6 +91,9 @@ export async function POST(request) {
   if (name.length > MAX_NAME || address.length > MAX_ADDRESS) {
     return fail("নাম বা ঠিকানা অনেক বড় হয়ে গেছে।");
   }
+  if (note.length > MAX_NOTE) {
+    return fail("নোট ৩০০ অক্ষরের মধ্যে লিখুন।");
+  }
   if (!isValidPhone(phone)) {
     return fail("সঠিক মোবাইল নম্বর দিন (যেমন 01XXXXXXXXX)।");
   }
@@ -97,6 +103,15 @@ export async function POST(request) {
     const products = await getProductsByIds(items.map((item) => item.productId));
     const problem = findUnavailable(items, products);
     if (problem) return fail(problem, 409);
+
+    // Discount is calculated from WooCommerce prices, never from the client
+    const byId = new Map(products.map((product) => [product.id, product]));
+    const { discount } = calcDiscount(
+      items.map(({ productId, quantity }) => {
+        const product = byId.get(productId);
+        return { price: product.price, quantity, eligible: isDiscountProduct(product.categories) };
+      })
+    );
 
     const contact = {
       first_name: name,
@@ -112,10 +127,14 @@ export async function POST(request) {
       status: "processing",
       billing: contact,
       shipping: contact,
+      ...(note && { customer_note: note }),
       line_items: items.map(({ productId, quantity }) => ({ product_id: productId, quantity })),
       shipping_lines: [
         { method_id: "free_shipping", method_title: "ফ্রি ডেলিভারি", total: "0" },
       ],
+      ...(discount > 0 && {
+        fee_lines: [{ name: DISCOUNT_LABEL, total: (-discount).toFixed(2), tax_status: "none" }],
+      }),
     });
 
     return Response.json({ id: order.id, order_key: order.order_key });
