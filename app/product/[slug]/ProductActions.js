@@ -43,6 +43,7 @@ export default function ProductActions({ product, inStock }) {
       <div className="flex flex-col gap-3 sm:flex-row">
         <button
           type="button"
+          data-track="add-to-cart"
           onClick={handleAddToCart}
           className="flex-1 rounded-full border-2 border-black px-6 py-3 font-semibold text-black transition hover:bg-neutral-100"
         >
@@ -50,6 +51,7 @@ export default function ProductActions({ product, inStock }) {
         </button>
         <button
           type="button"
+          data-track="buy-now"
           onClick={() => setCheckoutOpen(true)}
           className="flex-1 rounded-full bg-black px-6 py-3 font-semibold text-white transition hover:bg-neutral-800"
         >

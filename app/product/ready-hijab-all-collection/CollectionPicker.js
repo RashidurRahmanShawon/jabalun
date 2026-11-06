@@ -217,6 +217,7 @@ export default function CollectionPicker({ designs, title, price }) {
           {active.image ? (
             <button
               type="button"
+              data-track="collection-zoom"
               onClick={() => setZoomed(active)}
               aria-label="ছবি বড় করে দেখুন"
               className="absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full bg-white/90 shadow hover:bg-white"
@@ -263,6 +264,7 @@ export default function CollectionPicker({ designs, title, price }) {
             <button
               key={count}
               type="button"
+              data-track={`collection-pick-${count}`}
               onClick={() => chooseTarget(count)}
               aria-pressed={target === count}
               className={optionClass(target === count)}
@@ -323,6 +325,7 @@ export default function CollectionPicker({ designs, title, price }) {
               <li key={design.id}>
                 <button
                   type="button"
+                  data-track="collection-design"
                   onClick={() => toggle(design)}
                   aria-pressed={isSelected}
                   aria-label={`ডিজাইন ${label(design)}${isSelected ? " — বাছাই করা" : ""}`}
@@ -397,6 +400,7 @@ export default function CollectionPicker({ designs, title, price }) {
           </div>
           <button
             type="button"
+            data-track="collection-checkout"
             onClick={openCheckout}
             disabled={!ready}
             className="flex-1 rounded-lg bg-green-600 px-6 py-3 font-bold text-white shadow transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
@@ -417,7 +421,7 @@ export default function CollectionPicker({ designs, title, price }) {
             </a>
           ) : null}
           {phoneHref ? (
-            <a href={phoneHref} className="flex-1 rounded-lg bg-blue-500 px-4 py-3 text-center text-sm font-bold text-white hover:bg-blue-600">
+            <a href={phoneHref} data-track="collection-call" className="flex-1 rounded-lg bg-blue-500 px-4 py-3 text-center text-sm font-bold text-white hover:bg-blue-600">
               সরাসরি কল করুন
             </a>
           ) : null}

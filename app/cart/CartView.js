@@ -109,6 +109,7 @@ export default function CartView() {
                 </Link>
                 <button
                   type="button"
+                  data-track="cart-remove"
                   onClick={() => run(() => removeFromCart(row.id))}
                   className="shrink-0 text-sm text-red-600 hover:underline"
                 >
@@ -183,6 +184,7 @@ export default function CartView() {
         <button
           type="button"
           disabled={orderable.length === 0 || live === null}
+          data-track="cart-checkout"
           onClick={() => setCheckoutOpen(true)}
           className="mt-5 w-full rounded-full bg-black px-6 py-3.5 font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
         >

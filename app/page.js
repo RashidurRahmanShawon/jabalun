@@ -93,6 +93,7 @@ function Hero() {
         </p>
         <a
           href="#instant-ready-hijab"
+          data-track="hero-cta"
           className="mt-8 inline-block rounded-full bg-white px-8 py-3 text-base font-semibold text-black transition hover:bg-neutral-200"
         >
           ইনস্ট্যান্ট রেডি হিজাব
@@ -156,6 +157,7 @@ function CategorySection({ section }) {
           {allDesignsHref ? (
             <Link
               href={allDesignsHref}
+              data-track="home-all-designs"
               className="mt-5 inline-block rounded-full bg-[#b45309] px-6 py-2.5 font-semibold text-white transition hover:bg-[#92400e]"
             >
               সব ডিজাইন দেখুন
@@ -180,6 +182,7 @@ function CategorySection({ section }) {
         <div className="mt-8 text-center">
           <Link
             href={`/shop?category=${slug}`}
+            data-track={`home-see-all-${slug}`}
             className="inline-block rounded-full border-2 border-black px-8 py-2.5 font-semibold text-black transition hover:bg-black hover:text-white"
           >
             সব দেখুন

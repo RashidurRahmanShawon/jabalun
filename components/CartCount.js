@@ -10,6 +10,7 @@ export default function CartCount() {
   return (
     <Link
       href="/cart"
+      data-track="header-cart"
       className="relative inline-flex h-10 w-10 items-center justify-center rounded-lg text-neutral-800 hover:bg-neutral-100"
       aria-label={`কার্ট — ${count.toLocaleString("bn-BD")}টি পণ্য`}
     >

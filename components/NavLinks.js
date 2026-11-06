@@ -5,10 +5,10 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const LINKS = [
-  { href: "/", label: "হোম" },
-  { href: "/shop", label: "শপ" },
-  { href: "/about", label: "এবাউট" },
-  { href: "/contact", label: "কন্টাক্ট" },
+  { href: "/", label: "হোম", track: "nav-home" },
+  { href: "/shop", label: "শপ", track: "nav-shop" },
+  { href: "/about", label: "এবাউট", track: "nav-about" },
+  { href: "/contact", label: "কন্টাক্ট", track: "nav-contact" },
 ];
 
 function isActive(pathname, href) {
@@ -25,6 +25,7 @@ export function DesktopNav() {
           <li key={link.href}>
             <Link
               href={link.href}
+              data-track={link.track}
               aria-current={isActive(pathname, link.href) ? "page" : undefined}
               className="rounded-full px-4 py-2 font-medium text-neutral-700 transition hover:text-[#b45309] aria-[current=page]:bg-amber-50 aria-[current=page]:text-[#b45309]"
             >
@@ -77,6 +78,7 @@ export function MobileMenu() {
               <Link
                 href={link.href}
                 onClick={() => setOpen(false)}
+                data-track={`mobile-${link.track}`}
                 aria-current={isActive(pathname, link.href) ? "page" : undefined}
                 className="block rounded-lg px-3 py-3 font-medium text-neutral-800 hover:bg-neutral-50 aria-[current=page]:text-[#b45309]"
               >

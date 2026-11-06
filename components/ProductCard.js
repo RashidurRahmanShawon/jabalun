@@ -15,6 +15,7 @@ export default function ProductCard({ product, sizes = "(min-width: 1024px) 25vw
         href={href}
         tabIndex={-1}
         aria-hidden="true"
+        data-track="product-card-image"
         className="relative block aspect-[3/4] overflow-hidden bg-neutral-100"
       >
         {image?.src ? (
@@ -33,7 +34,7 @@ export default function ProductCard({ product, sizes = "(min-width: 1024px) 25vw
       </Link>
       <div className="flex flex-1 flex-col p-3">
         <h3 className="line-clamp-2 text-sm font-medium text-neutral-900 sm:text-base">
-          <Link href={href} className="underline-offset-4 hover:underline">
+          <Link href={href} data-track="product-card-name" className="underline-offset-4 hover:underline">
             {name}
           </Link>
         </h3>
@@ -43,6 +44,7 @@ export default function ProductCard({ product, sizes = "(min-width: 1024px) 25vw
         <div className="mt-auto pt-3">
           <Link
             href={href}
+            data-track="product-card-order"
             className="block rounded-lg bg-black px-3 py-2 text-center text-sm font-semibold text-white transition hover:bg-neutral-800"
           >
             অর্ডার করুন
