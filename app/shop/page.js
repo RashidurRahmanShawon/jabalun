@@ -25,7 +25,7 @@ async function loadProducts(slug) {
     }
     const categoryId = await getCategoryBySlug(slug);
     if (!categoryId) {
-      console.warn(`WooCommerce category not found: ${slug}`);
+      console.warn(`Category not found: ${slug}`);
       return { products: [], failed: false };
     }
     return {

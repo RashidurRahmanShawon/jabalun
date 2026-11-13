@@ -14,7 +14,7 @@ export default async function AdminOverviewPage() {
 
   return (
     <>
-      <PageHeader title="ওভারভিউ" description="WooCommerce-এর আসল অর্ডার থেকে — গত ৩০ দিন (ঢাকার সময়)" />
+      <PageHeader title="ওভারভিউ" description="গত ৩০ দিনের অর্ডারের সারাংশ (ঢাকার সময়)" />
 
       {overview.error ? (
         <ConnectionError message={overview.error} />
@@ -101,7 +101,7 @@ export default async function AdminOverviewPage() {
             description={
               stock.stockTracked
                 ? "৫টির কম স্টকের কোনো পণ্য নেই।"
-                : "WooCommerce-এ পণ্যের \"Manage stock\" চালু করলে কম স্টকের সতর্কতা এখানে দেখাবে।"
+                : "পণ্যের স্টক ৫ বা তার কম হলে সতর্কতা এখানে দেখাবে।"
             }
           />
         )}

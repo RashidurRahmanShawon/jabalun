@@ -30,7 +30,7 @@ export default async function AdminOrdersPage({ searchParams }) {
 
   return (
     <>
-      <PageHeader title="অর্ডার" description="WooCommerce-এর আসল অর্ডার, নতুনটি আগে" />
+      <PageHeader title="অর্ডার" description="সব আসল অর্ডার, নতুনটি আগে" />
 
       {data.error ? (
         <ConnectionError message={data.error} />

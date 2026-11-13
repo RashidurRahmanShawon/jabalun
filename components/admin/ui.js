@@ -78,7 +78,7 @@ export function EmptyState({ title = "কিছু পাওয়া যায�
   );
 }
 
-export function ConnectionError({ message = "WooCommerce-এর সাথে সংযোগ হয়নি।" }) {
+export function ConnectionError({ message = "ডাটাবেসের সাথে সংযোগ করা যায়নি।" }) {
   return (
     <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-700">
       {message} একটু পরে পেজটি আবার খুলুন।

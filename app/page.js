@@ -39,8 +39,7 @@ async function loadCategoryProducts(slug) {
   try {
     const categoryId = await getCategoryBySlug(slug);
     if (!categoryId) {
-      // Category not created in WooCommerce yet: treat as empty, not as an error
-      console.warn(`WooCommerce category not found: ${slug}`);
+      console.warn(`Category not found: ${slug}`);
       return { products: [], failed: false };
     }
     return { products: await getProductsByCategory(categoryId), failed: false };
