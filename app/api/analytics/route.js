@@ -1,6 +1,6 @@
-// Receives behaviour events from lib/analytics.js.
-// For now nothing is stored or logged (no IP either) — a database comes later.
+import { getSupabaseServer } from "@/lib/supabase-server";
 
+// Receives behaviour events from lib/analytics.js.
 const MAX_BYTES = 4096;
 const TYPES = new Set([
   "page_view",
@@ -20,13 +20,29 @@ export async function POST(request) {
   }
   if (text.length > MAX_BYTES) return new Response(null, { status: 413 });
 
+  let event;
   try {
-    const event = JSON.parse(text);
+    event = JSON.parse(text);
     if (!event || typeof event !== "object" || !TYPES.has(event.type)) {
       return new Response(null, { status: 400 });
     }
   } catch {
     return new Response(null, { status: 400 });
+  }
+
+  // Persist to Supabase if configured (fails silently if unconfigured or error)
+  const supabase = getSupabaseServer();
+  if (supabase) {
+    try {
+      await supabase.from("analytics_events").insert({
+        type: event.type,
+        sid: event.sid || null,
+        path: event.path || "/",
+        data: event.data || {},
+      });
+    } catch (err) {
+      console.error("Supabase analytics insert error:", err.message);
+    }
   }
 
   return new Response(null, { status: 204 });

@@ -4,6 +4,8 @@ const nextConfig = {
     remotePatterns: [
       { protocol: "https", hostname: "cms.jabalun.com" },
       { protocol: "https", hostname: "jabalun.com" },
+      { protocol: "https", hostname: "**.supabase.co" },
+      { protocol: "https", hostname: "images.unsplash.com" },
     ],
     // 75 is the default for the site; 70 is used by the ready-hijab collection grid
     qualities: [70, 75],

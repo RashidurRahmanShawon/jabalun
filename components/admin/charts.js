@@ -13,13 +13,13 @@ export function LineChart({ points, formatValue = num, height = 220 }) {
   const y = (v) => pad.top + (1 - v / max) * (height - pad.top - pad.bottom);
   const line = points.map((p, i) => `${i === 0 ? "M" : "L"}${x(i).toFixed(1)},${y(p.value).toFixed(1)}`).join(" ");
   const area = `${line} L${x(points.length - 1)},${y(0)} L${x(0)},${y(0)} Z`;
-  const ticks = [0, 0.5, 1].map((t) => Math.round(max * t));
+  const ticks = [...new Set([0, 0.5, 1].map((t) => Math.round(max * t)))];
   const labelEvery = Math.ceil(points.length / 6);
 
   return (
     <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="বিক্রির লাইন চার্ট">
-      {ticks.map((tick) => (
-        <g key={tick}>
+      {ticks.map((tick, i) => (
+        <g key={`tick-${tick}-${i}`}>
           <line x1={pad.left} x2={width - pad.right} y1={y(tick)} y2={y(tick)} stroke="#e5e5e5" />
           <text x={pad.left - 6} y={y(tick) + 4} textAnchor="end" fontSize="10" fill="#737373">
             {formatValue(tick)}
@@ -29,7 +29,7 @@ export function LineChart({ points, formatValue = num, height = 220 }) {
       <path d={area} fill={BRAND} opacity="0.08" />
       <path d={line} fill="none" stroke={BRAND} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
       {points.map((p, i) => (
-        <g key={p.label}>
+        <g key={`${p.label}-${i}`}>
           <circle cx={x(i)} cy={y(p.value)} r="3" fill={BRAND}>
             <title>{`${p.label}: ${formatValue(p.value)}`}</title>
           </circle>
@@ -49,8 +49,8 @@ export function BarList({ rows, formatValue = num, color = BRAND }) {
   const max = Math.max(...rows.map((row) => row.value), 1);
   return (
     <ul className="space-y-3">
-      {rows.map((row) => (
-        <li key={row.label}>
+      {rows.map((row, i) => (
+        <li key={`${row.label}-${i}`}>
           <div className="mb-1 flex justify-between gap-3 text-sm">
             <span className="truncate text-neutral-700">{row.label}</span>
             <span className="shrink-0 font-semibold text-neutral-900">{formatValue(row.value)}</span>
@@ -73,7 +73,7 @@ export function Funnel({ steps }) {
         const previous = steps[i - 1]?.value;
         const drop = previous ? ((previous - step.value) / previous) * 100 : null;
         return (
-          <li key={step.label}>
+          <li key={`${step.label}-${i}`}>
             <div className="mb-1 flex flex-wrap items-baseline justify-between gap-x-3 text-sm">
               <span className="font-medium text-neutral-800">
                 {i + 1}. {step.label}
@@ -103,8 +103,8 @@ export function Funnel({ steps }) {
 export function ColumnChart({ bars, height = 180 }) {
   return (
     <div className="flex items-end gap-4" style={{ height }} role="img" aria-label="স্ক্রল গভীরতা চার্ট">
-      {bars.map((bar) => (
-        <div key={bar.label} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
+      {bars.map((bar, i) => (
+        <div key={`${bar.label}-${i}`} className="flex h-full flex-1 flex-col items-center justify-end gap-2">
           <span className="text-xs font-semibold text-neutral-800">{percent(bar.value, 0)}</span>
           <div className="w-full max-w-16 rounded-t-lg" style={{ height: `${bar.value}%`, backgroundColor: BRAND }} />
           <span className="text-xs text-neutral-500">{bar.label}</span>

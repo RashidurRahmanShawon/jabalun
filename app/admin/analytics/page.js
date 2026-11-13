@@ -1,15 +1,16 @@
 import { Clock, Eye, LogOut, Users } from "lucide-react";
-import { Card, KpiCard, MockBadge, PageHeader } from "@/components/admin/ui";
+import { Badge, Card, KpiCard, MockBadge, PageHeader } from "@/components/admin/ui";
 import { BarList, ColumnChart, Funnel } from "@/components/admin/charts";
-import { ANALYTICS } from "@/lib/admin/mock-data";
 import { duration, num, percent } from "@/lib/admin/format";
 import { requireAdmin } from "@/lib/admin/session";
+import { loadAnalyticsData } from "@/lib/admin/data";
 
 export const metadata = { title: "বিশ্লেষণ" };
 
 export default async function AdminAnalyticsPage() {
   await requireAdmin();
-  const { kpis, funnel, topClicks, fieldDropoff, scrollDepth, pageTime } = ANALYTICS;
+  const { live, data } = await loadAnalyticsData();
+  const { kpis, funnel, topClicks, fieldDropoff, scrollDepth, pageTime } = data;
   const dropTotal = fieldDropoff.reduce((sum, f) => sum + f.value, 0);
 
   return (
@@ -17,11 +18,13 @@ export default async function AdminAnalyticsPage() {
       <PageHeader
         title="বিশ্লেষণ"
         description="ক্রেতারা সাইটে কী করছেন — গত ৩০ দিন"
-        actions={<MockBadge />}
+        actions={live ? <Badge tone="green">সরাসরি ডেটা (Supabase)</Badge> : <MockBadge />}
       />
-      <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        <b>নমুনা ডেটা:</b> এই পেজের সব সংখ্যা উদাহরণ মাত্র। সাইটের ট্র্যাকার এখন ইভেন্ট পাঠায়, কিন্তু ডেটাবেস যুক্ত না হওয়া পর্যন্ত সেগুলো সংরক্ষণ বা এখানে দেখানো হয় না।
-      </p>
+      {!live ? (
+        <p className="mb-6 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <b>নমুনা ডেটা:</b> এই পেজের সব সংখ্যা উদাহরণ মাত্র। Supabase সংযোগ চালু হলে সাইটের রিয়েল-টাইম ট্র্যাকিং ডেটা এখানে স্বয়ংক্রিয়ভাবে প্রদর্শিত হবে।
+        </p>
+      ) : null}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard label="পেজ ভিউ" value={num(kpis.pageViews)} icon={Eye} />
