@@ -110,7 +110,7 @@ export default function AdminShell({ children }) {
   if (pathname === "/admin/login") return children;
 
   return (
-    <div className="flex min-h-screen bg-neutral-50 text-neutral-900">
+    <div className="flex min-h-screen bg-neutral-50 text-neutral-900 print:block print:min-h-0 print:bg-white">
       {/* Desktop sidebar */}
       <aside
         className={`sticky top-0 hidden h-screen shrink-0 flex-col bg-neutral-900 p-3 transition-[width] duration-200 print:hidden md:flex ${
@@ -164,7 +164,7 @@ export default function AdminShell({ children }) {
           </button>
           <span className="font-bold text-[#b45309]">জাবালুন অ্যাডমিন</span>
         </header>
-        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8">{children}</main>
+        <main className="flex-1 px-4 py-6 sm:px-6 lg:px-8 print:p-0">{children}</main>
       </div>
     </div>
   );

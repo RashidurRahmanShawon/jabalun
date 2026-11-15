@@ -2,7 +2,11 @@ import { createOrder, getProductsByIds } from "@/lib/woo";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { decodeEntities } from "@/lib/text";
 import { calcDiscount, DISCOUNT_LABEL, isDiscountProduct } from "@/lib/discount";
+import { classifySource, sanitizeSource } from "@/lib/order-source";
 import { CART_MAX_ITEMS as MAX_ITEMS, CART_MAX_QTY as MAX_QTY } from "@/lib/site";
+import { findRecentDuplicates, hashClientIp } from "@/lib/duplicate";
+
+const DUPLICATE_MESSAGE = "আপনি সম্প্রতি একটি অর্ডার করেছেন। আগের অর্ডারটি নিশ্চিত করতে আমরা আবার জিজ্ঞেস করছি।";
 
 const MAX_NAME = 100;
 const MAX_ADDRESS = 300;
@@ -120,7 +124,29 @@ export async function POST(request) {
       country: "BD",
     };
 
+    // Same phone in the last 60 minutes? Active order -> ask first (409), unless the customer confirmed.
+    // Order details go back only when the IP hash matches too, so a phone number alone reveals nothing.
+    const ipHash = hashClientIp(request.headers);
+    const duplicates = await findRecentDuplicates({ phone, ipHash });
+    const warningInactive = duplicates.recentInactiveMatches.length > 0;
+    if (duplicates.activeMatches.length > 0 && body.acknowledgedDuplicate !== true) {
+      return Response.json(
+        {
+          error: DUPLICATE_MESSAGE,
+          duplicate: true,
+          orders: duplicates.activeMatches.filter((m) => m.ipMatch).map((m) => m.summary),
+          warningInactive,
+        },
+        { status: 409 }
+      );
+    }
+
+    const sourceDetail = sanitizeSource(body.source);
+    const { source, paid } = classifySource(sourceDetail);
+
     const order = await createOrder({
+      source,
+      source_detail: { ...sourceDetail, paid, ...(ipHash && { ip_hash: ipHash }) },
       payment_method: "cod",
       payment_method_title: "ক্যাশ অন ডেলিভারি",
       set_paid: false,
@@ -128,7 +154,19 @@ export async function POST(request) {
       billing: contact,
       shipping: contact,
       ...(note && { customer_note: note }),
-      line_items: items.map(({ productId, quantity }) => ({ product_id: productId, quantity })),
+      // Snapshot name/price at order time so the order stays correct if the product changes later
+      line_items: items.map(({ productId, quantity }) => {
+        const product = byId.get(productId);
+        return {
+          product_id: productId,
+          quantity,
+          name: decodeEntities(product.name),
+          price: Number(product.price) || 0,
+          design_number: product.designNumber || "",
+          image: product.images?.[0]?.src || null,
+          category: product.categories?.[0]?.slug || "",
+        };
+      }),
       shipping_lines: [
         { method_id: "free_shipping", method_title: "ফ্রি ডেলিভারি", total: "0" },
       ],
@@ -137,7 +175,7 @@ export async function POST(request) {
       }),
     });
 
-    return Response.json({ id: order.id, order_key: order.order_key });
+    return Response.json({ id: order.id, order_key: order.order_key, ...(warningInactive && { warningInactive: true }) });
   } catch (error) {
     console.error("Order creation failed:", error.message);
     return fail(GENERIC_ERROR, 502);

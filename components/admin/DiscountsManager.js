@@ -1,22 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Pencil, Plus } from "lucide-react";
-import { Badge, Button, Card, EmptyState, Field, Toggle, inputClass } from "./ui";
+import { Badge, Button, Card, EmptyState, Field, MockBadge, Toggle, inputClass } from "./ui";
 import { Modal } from "./Modal";
+import { saveCategory } from "@/app/admin/discounts/actions";
 
 function CategoryForm({ initial, onClose, onSave }) {
   const [form, setForm] = useState(initial);
   const [error, setError] = useState("");
+  const [saving, startSaving] = useTransition();
 
   function submit(event) {
     event.preventDefault();
-    const slug = form.id.trim();
-    if (!form.name.trim() || !/^[a-z0-9-]+$/.test(slug)) {
+    const slug = form.id.trim().toLowerCase();
+    if (!form.name.trim() || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) {
       setError("নাম দিন, আর slug-এ শুধু ছোট হাতের ইংরেজি অক্ষর, সংখ্যা ও - ব্যবহার করুন।");
       return;
     }
-    onSave({ ...form, id: slug });
+    setError("");
+    startSaving(async () => {
+      const result = await saveCategory({ slug, name: form.name, description: form.description, isNew: Boolean(initial.isNew) });
+      if (result?.error) setError(result.error);
+      else onSave(result.category);
+    });
   }
 
   return (
@@ -33,8 +40,8 @@ function CategoryForm({ initial, onClose, onSave }) {
         </Field>
         {error ? <p role="alert" className="text-sm text-red-600">{error}</p> : null}
         <div className="flex justify-end gap-2">
-          <Button variant="secondary" onClick={onClose}>বাতিল</Button>
-          <Button type="submit">সংরক্ষণ করুন</Button>
+          <Button variant="secondary" onClick={onClose} disabled={saving}>বাতিল</Button>
+          <Button type="submit" disabled={saving}>{saving ? "সংরক্ষণ হচ্ছে…" : "সংরক্ষণ করুন"}</Button>
         </div>
       </form>
     </Modal>
@@ -90,7 +97,7 @@ export default function DiscountsManager({ initialCategories, initialRule }) {
         )}
       </Card>
 
-      <Card title="ছাড়ের নিয়ম">
+      <Card title="ছাড়ের নিয়ম" action={<MockBadge />}>
         <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
@@ -115,6 +122,7 @@ export default function DiscountsManager({ initialCategories, initialRule }) {
           <Button className="mt-4" onClick={saveRule}>নিয়ম হালনাগাদ করুন</Button>
         </div>
         {notice ? <p className="mt-3 text-sm text-amber-800">{notice}</p> : null}
+        <p className="mt-3 text-xs text-neutral-500">ছাড়ের নিয়ম এখনো নমুনা: এখানে বদলালে সাইটের আসল ছাড় বদলায় না।</p>
       </Card>
 
       {editing ? (

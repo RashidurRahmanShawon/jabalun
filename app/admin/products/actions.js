@@ -125,3 +125,70 @@ export async function removeProduct(productId) {
     return { error: err.message };
   }
 }
+
+function revalidateProductPages(slug) {
+  revalidatePath("/admin/products");
+  revalidatePath("/admin");
+  revalidatePath("/");
+  revalidatePath("/shop");
+  if (slug) revalidatePath(`/product/${slug}`);
+}
+
+// Trash (WooCommerce style): hidden from the shop, restorable. status "trash".
+export async function trashProduct(productId) {
+  await requireAdmin();
+  const supabase = getSupabaseServer();
+  if (!supabase) return { error: "ডাটাবেস সংযুক্ত নেই।" };
+  const { data, error } = await supabase
+    .from("products")
+    .update({ status: "trash" })
+    .eq("id", productId)
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  revalidateProductPages(data.slug);
+  return { success: true, product: data };
+}
+
+// Restore from trash: comes back as a draft (like WordPress) so it is not published by accident
+export async function restoreProduct(productId) {
+  await requireAdmin();
+  const supabase = getSupabaseServer();
+  if (!supabase) return { error: "ডাটাবেস সংযুক্ত নেই।" };
+  const { data, error } = await supabase
+    .from("products")
+    .update({ status: "draft" })
+    .eq("id", productId)
+    .select()
+    .single();
+  if (error) return { error: error.message };
+  revalidateProductPages(data.slug);
+  return { success: true, product: data };
+}
+
+// Duplicate: same details, new slug, saved as a draft
+export async function duplicateProduct(productId) {
+  await requireAdmin();
+  const supabase = getSupabaseServer();
+  if (!supabase) return { error: "ডাটাবেস সংযুক্ত নেই।" };
+  const { data: source, error: readError } = await supabase.from("products").select("*").eq("id", productId).single();
+  if (readError || !source) return { error: readError?.message || "পণ্যটি পাওয়া যায়নি।" };
+
+  const copy = {
+    name: `${source.name} (কপি)`,
+    slug: `${source.slug}-copy-${Date.now().toString(36)}`,
+    design_number: source.design_number,
+    price: source.price,
+    regular_price: source.regular_price,
+    image_url: source.image_url,
+    description: source.description,
+    short_description: source.short_description,
+    category_slug: source.category_slug,
+    stock: source.stock,
+    status: "draft",
+  };
+  const { data, error } = await supabase.from("products").insert(copy).select().single();
+  if (error) return { error: error.message };
+  revalidatePath("/admin/products");
+  return { success: true, product: data };
+}

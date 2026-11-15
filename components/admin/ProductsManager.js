@@ -1,11 +1,18 @@
 "use client";
 
 import { useEffect, useState, useTransition } from "react";
-import { CheckCircle2, ImageOff, Loader2, Pencil, Plus, Search, Trash2, UploadCloud } from "lucide-react";
+import { CheckCircle2, ImageOff, Loader2, Plus, Search, UploadCloud } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, TableWrap, Toggle, inputClass, td, th } from "./ui";
 import { ConfirmDialog, Modal } from "./Modal";
 import { num, taka } from "@/lib/admin/format";
-import { upsertProduct, removeProduct, uploadProductImage } from "@/app/admin/products/actions";
+import {
+  duplicateProduct,
+  removeProduct,
+  restoreProduct,
+  trashProduct,
+  upsertProduct,
+  uploadProductImage,
+} from "@/app/admin/products/actions";
 import { compressProductImage } from "@/lib/image-compressor";
 
 const EMPTY = {
@@ -23,12 +30,16 @@ function normalizeProduct(p) {
   const cat = p.category || p.category_slug || p.categories?.[0]?.id || "instant-ready-hijab";
   const st = p.status === "publish" ? "published" : p.status || "draft";
   const img = p.image || p.image_url || p.images?.[0]?.src || "";
+  const price = Number(p.price) || 0;
   return {
     ...p,
     category: cat,
     status: st,
     image: img,
-    price: Number(p.price) || 0,
+    designNumber: p.designNumber ?? p.design_number ?? "",
+    price,
+    // Keep the original (crossed-out) price instead of overwriting it with the sale price on save
+    regularPrice: Number(p.regularPrice ?? p.regular_price) || price,
     stock: p.stock ?? p.stock_quantity ?? 50,
   };
 }
@@ -294,44 +305,201 @@ function ProductForm({ open, initial, categories, onClose, onSave }) {
   );
 }
 
+const STATUS_TABS = [
+  { id: "", label: "সব" },
+  { id: "published", label: "প্রকাশিত" },
+  { id: "draft", label: "ড্রাফট" },
+  { id: "trash", label: "ট্র্যাশ" },
+];
+
+const STATUS_BADGE = {
+  published: { tone: "green", label: "প্রকাশিত" },
+  draft: { tone: "neutral", label: "ড্রাফট" },
+  trash: { tone: "red", label: "ট্র্যাশে" },
+};
+
+// WooCommerce-style row links under the product name
+function RowLink({ children, onClick, href, danger = false, disabled = false }) {
+  const cls = `font-medium hover:underline disabled:cursor-wait disabled:opacity-50 ${danger ? "text-red-600" : "text-[#b45309]"}`;
+  return href ? (
+    <a href={href} target="_blank" rel="noopener noreferrer" className={cls}>
+      {children}
+    </a>
+  ) : (
+    <button type="button" onClick={onClick} disabled={disabled} className={cls}>
+      {children}
+    </button>
+  );
+}
+
+// Shown on row hover on desktop (always visible on touch screens)
+function RowActions({ items }) {
+  const shown = items.filter(Boolean);
+  return (
+    <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-neutral-400 md:opacity-0 md:transition-opacity md:group-hover:opacity-100 md:focus-within:opacity-100">
+      {shown.map((item, i) => (
+        <span key={i} className="inline-flex items-center gap-1.5">
+          {i > 0 ? <span aria-hidden="true">|</span> : null}
+          {item}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// Inline quick edit (name, design, prices, stock, category, status) without opening the full form
+function QuickEditRow({ product, categories, onCancel, onSave }) {
+  const [form, setForm] = useState({
+    name: product.name,
+    designNumber: product.designNumber || "",
+    price: String(product.price),
+    regularPrice: String(product.regularPrice || product.price),
+    stock: String(product.stock),
+    category: product.category,
+    status: product.status === "published" ? "published" : "draft",
+  });
+  const [error, setError] = useState("");
+  const [saving, startSaving] = useTransition();
+  const set = (field) => (event) => setForm((f) => ({ ...f, [field]: event.target.value }));
+
+  function save(event) {
+    event.preventDefault();
+    if (!form.name.trim() || !(Number(form.price) > 0)) {
+      setError("নাম আর দাম দিন।");
+      return;
+    }
+    if (!(Number(form.stock) >= 0)) {
+      setError("স্টক ০ বা তার বেশি দিন।");
+      return;
+    }
+    setError("");
+    startSaving(async () => {
+      const result = await onSave({ ...product, ...form });
+      if (result?.error) setError(result.error);
+    });
+  }
+
+  const small = `${inputClass} py-1.5`;
+  const id = (field) => `qe-${field}-${product.id}`;
+  return (
+    <tr className="bg-amber-50/60">
+      <td colSpan={8} className="px-3 py-4">
+        <form onSubmit={save}>
+          <p className="mb-3 text-sm font-bold text-neutral-900">কুইক এডিট — ID {product.id}</p>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Field label="নাম" htmlFor={id("name")}>
+              <input id={id("name")} className={small} value={form.name} onChange={set("name")} />
+            </Field>
+            <Field label="ডিজাইন নম্বর" htmlFor={id("design")}>
+              <input id={id("design")} className={small} value={form.designNumber} onChange={set("designNumber")} />
+            </Field>
+            <Field label="বিক্রয় মূল্য (৳)" htmlFor={id("price")}>
+              <input id={id("price")} type="number" min="0" className={small} value={form.price} onChange={set("price")} />
+            </Field>
+            <Field label="আসল মূল্য (৳, কাটা দাম)" htmlFor={id("regular")}>
+              <input id={id("regular")} type="number" min="0" className={small} value={form.regularPrice} onChange={set("regularPrice")} />
+            </Field>
+            <Field label="স্টক" htmlFor={id("stock")}>
+              <input id={id("stock")} type="number" min="0" className={small} value={form.stock} onChange={set("stock")} />
+            </Field>
+            <Field label="ক্যাটাগরি" htmlFor={id("cat")}>
+              <select id={id("cat")} className={small} value={form.category} onChange={set("category")}>
+                {categories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="স্ট্যাটাস" htmlFor={id("status")}>
+              <select id={id("status")} className={small} value={form.status} onChange={set("status")}>
+                <option value="published">প্রকাশিত</option>
+                <option value="draft">ড্রাফট</option>
+              </select>
+            </Field>
+          </div>
+          {error ? <p role="alert" className="mt-3 text-sm text-red-600">{error}</p> : null}
+          <div className="mt-4 flex gap-2">
+            <Button type="submit" disabled={saving}>{saving ? "সংরক্ষণ হচ্ছে…" : "আপডেট"}</Button>
+            <Button variant="secondary" onClick={onCancel} disabled={saving}>বাতিল</Button>
+          </div>
+        </form>
+      </td>
+    </tr>
+  );
+}
+
 export default function ProductsManager({ initialProducts = [], categories = [] }) {
   const [products, setProducts] = useState(() => initialProducts.map(normalizeProduct));
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("");
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState(null);
+  const [quickEdit, setQuickEdit] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [busy, setBusy] = useState(null); // id of the row an action is running on
   const [notice, setNotice] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
 
   const categoryName = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const q = query.trim().toLowerCase();
+  const counts = {
+    "": products.filter((p) => p.status !== "trash").length,
+    published: products.filter((p) => p.status === "published").length,
+    draft: products.filter((p) => p.status === "draft").length,
+    trash: products.filter((p) => p.status === "trash").length,
+  };
   const visible = products.filter(
     (p) =>
-      (!q || p.name.toLowerCase().includes(q) || String(p.designNumber || "").includes(q)) &&
+      (!q || p.name.toLowerCase().includes(q) || String(p.designNumber || "").includes(q) || String(p.id) === q) &&
       (!category || p.category === category) &&
-      (!status || p.status === status)
+      (status ? p.status === status : p.status !== "trash")
   );
+
+  const openEditor = (p) => setEditing({ ...p, price: String(p.price), stock: String(p.stock) });
+
+  function flash(message) {
+    setNotice(message);
+    setTimeout(() => setNotice(""), 4000);
+  }
+
+  function replaceProduct(row) {
+    const saved = normalizeProduct(row);
+    setProducts((list) => {
+      const idx = list.findIndex((p) => p.id === saved.id);
+      if (idx < 0) return [saved, ...list];
+      const copy = [...list];
+      copy[idx] = saved;
+      return copy;
+    });
+    return saved;
+  }
 
   async function handleSave(productData) {
     const res = await upsertProduct(productData);
     if (res?.error) return res;
-
-    const saved = normalizeProduct(res.product || productData);
-    setProducts((list) => {
-      const idx = list.findIndex((p) => p.id === saved.id);
-      if (idx >= 0) {
-        const copy = [...list];
-        copy[idx] = saved;
-        return copy;
-      }
-      return [saved, ...list];
-    });
-
+    replaceProduct(res.product || productData);
     setEditing(null);
-    setNotice("✓ পণ্য সফলভাবে ডাটাবেসে সংরক্ষণ করা হয়েছে।");
-    setTimeout(() => setNotice(""), 4000);
+    setQuickEdit(null);
+    flash("✓ পণ্য সফলভাবে ডাটাবেসে সংরক্ষণ করা হয়েছে।");
     return { success: true };
+  }
+
+  async function runRowAction(product, action, message) {
+    setBusy(product.id);
+    const res = await action(product.id);
+    setBusy(null);
+    if (res?.error) {
+      alert(`কাজটি করা যায়নি: ${res.error}`);
+      return null;
+    }
+    const saved = replaceProduct(res.product);
+    flash(message);
+    return saved;
+  }
+
+  async function handleDuplicate(product) {
+    const copy = await runRowAction(product, duplicateProduct, `✓ "${product.name}"-এর কপি ড্রাফট হিসেবে তৈরি হয়েছে।`);
+    // Like WooCommerce: open the copy for editing straight away
+    if (copy) openEditor(copy);
   }
 
   async function handleDelete() {
@@ -347,19 +515,38 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
 
     setProducts((list) => list.filter((p) => p.id !== deleting.id));
     setDeleting(null);
-    setNotice("✓ পণ্য ডাটাবেস থেকে মুছে ফেলা হয়েছে।");
-    setTimeout(() => setNotice(""), 4000);
+    flash("✓ পণ্য স্থায়ীভাবে মুছে ফেলা হয়েছে।");
   }
 
   return (
     <>
       <Card>
+        {/* Status tabs, WooCommerce style: All | Published | Draft | Trash */}
+        <div className="mb-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm" role="navigation" aria-label="স্ট্যাটাস ফিল্টার">
+          {STATUS_TABS.filter((t) => t.id !== "trash" || counts.trash > 0).map((t, i) => (
+            <span key={t.id || "all"} className="inline-flex items-center gap-2">
+              {i > 0 ? <span className="text-neutral-300" aria-hidden="true">|</span> : null}
+              <button
+                type="button"
+                onClick={() => {
+                  setStatus(t.id);
+                  setQuickEdit(null);
+                }}
+                aria-pressed={status === t.id}
+                className={status === t.id ? "font-bold text-neutral-900" : "text-[#b45309] hover:underline"}
+              >
+                {t.label} <span className="font-normal text-neutral-500">({num(counts[t.id])})</span>
+              </button>
+            </span>
+          ))}
+        </div>
+
         <div className="mb-4 flex flex-wrap items-center gap-3">
           <div className="relative min-w-48 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" />
             <input
               type="search"
-              placeholder="নাম বা ডিজাইন নম্বর দিয়ে খুঁজুন"
+              placeholder="নাম, ডিজাইন নম্বর বা ID দিয়ে খুঁজুন"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className={`${inputClass} pl-9`}
@@ -381,18 +568,7 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
             ))}
           </select>
 
-          <select
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-            className={`${inputClass} w-auto`}
-            aria-label="স্ট্যাটাস ফিল্টার"
-          >
-            <option value="">সব স্ট্যাটাস</option>
-            <option value="published">প্রকাশিত</option>
-            <option value="draft">ড্রাফট</option>
-          </select>
-
-          <Button onClick={() => setEditing(EMPTY)}>
+          <Button onClick={() => setEditing({ ...EMPTY, category: categories[0]?.id || EMPTY.category })}>
             <Plus className="h-4 w-4" /> নতুন পণ্য যোগ করুন
           </Button>
         </div>
@@ -414,64 +590,105 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
                 <th className={th}>স্টক</th>
                 <th className={th}>ক্যাটাগরি</th>
                 <th className={th}>স্ট্যাটাস</th>
-                <th className={`${th} text-right`}>অ্যাকশন</th>
+                <th className={th}>ID</th>
               </tr>
             </thead>
             <tbody>
-              {visible.map((p) => (
-                <tr key={p.id} className="hover:bg-neutral-50 transition">
-                  <td className={td}>
-                    {p.image ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={p.image} alt="" className="h-12 w-9 rounded object-cover border border-neutral-200" />
-                    ) : (
-                      <span className="flex h-12 w-9 items-center justify-center rounded bg-amber-50 text-[10px] font-bold text-[#b45309]">
-                        {p.designNumber || <ImageOff className="h-4 w-4" />}
-                      </span>
-                    )}
-                  </td>
-                  <td className={`${td} font-medium text-neutral-900`}>{p.name}</td>
-                  <td className={td}>{p.designNumber || "—"}</td>
-                  <td className={`${td} font-semibold`}>{taka(p.price)}</td>
-                  <td className={td}>
-                    <span className={p.stock <= 5 ? "font-semibold text-red-600" : ""}>
-                      {num(p.stock)}
-                    </span>
-                  </td>
-                  <td className={td}>{categoryName[p.category] || p.category || "—"}</td>
-                  <td className={td}>
-                    <Badge tone={p.status === "published" ? "green" : "neutral"}>
-                      {p.status === "published" ? "প্রকাশিত" : "ড্রাফট"}
-                    </Badge>
-                  </td>
-                  <td className={`${td} text-right`}>
-                    <div className="inline-flex gap-1">
-                      <button
-                        type="button"
-                        onClick={() => setEditing({ ...p, price: String(p.price), stock: String(p.stock) })}
-                        aria-label={`${p.name} সম্পাদনা`}
-                        className="rounded-lg p-2 text-neutral-600 hover:bg-neutral-100 hover:text-neutral-900"
-                        title="সম্পাদনা করুন"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setDeleting(p)}
-                        aria-label={`${p.name} মুছুন`}
-                        className="rounded-lg p-2 text-red-600 hover:bg-red-50"
-                        title="মুছে ফেলুন"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {visible.map((p) =>
+                quickEdit === p.id ? (
+                  <QuickEditRow
+                    key={p.id}
+                    product={p}
+                    categories={categories}
+                    onCancel={() => setQuickEdit(null)}
+                    onSave={handleSave}
+                  />
+                ) : (
+                  <tr key={p.id} className="group transition hover:bg-neutral-50">
+                    <td className={td}>
+                      {p.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={p.image} alt="" className="h-12 w-9 rounded border border-neutral-200 object-cover" />
+                      ) : (
+                        <span className="flex h-12 w-9 items-center justify-center rounded bg-amber-50 text-[10px] font-bold text-[#b45309]">
+                          {p.designNumber || <ImageOff className="h-4 w-4" />}
+                        </span>
+                      )}
+                    </td>
+                    <td className={td}>
+                      {p.status === "trash" ? (
+                        <span className="font-semibold text-neutral-500">{p.name}</span>
+                      ) : (
+                        <button type="button" onClick={() => openEditor(p)} className="text-left font-semibold text-[#b45309] hover:underline">
+                          {p.name}
+                          {p.status === "draft" ? <span className="font-normal text-neutral-500"> — ড্রাফট</span> : null}
+                        </button>
+                      )}
+                      {p.status === "trash" ? (
+                        <RowActions
+                          items={[
+                            <span key="id" className="text-neutral-500">ID: {p.id}</span>,
+                            <RowLink
+                              key="restore"
+                              disabled={busy === p.id}
+                              onClick={() => runRowAction(p, restoreProduct, `✓ "${p.name}" ফেরত আনা হয়েছে (ড্রাফট হিসেবে)।`)}
+                            >
+                              Restore
+                            </RowLink>,
+                            <RowLink key="delete" danger disabled={busy === p.id} onClick={() => setDeleting(p)}>
+                              Delete Permanently
+                            </RowLink>,
+                          ]}
+                        />
+                      ) : (
+                        <RowActions
+                          items={[
+                            <span key="id" className="text-neutral-500">ID: {p.id}</span>,
+                            <RowLink key="edit" onClick={() => openEditor(p)}>Edit</RowLink>,
+                            <RowLink key="quick" onClick={() => setQuickEdit(p.id)}>Quick Edit</RowLink>,
+                            <RowLink
+                              key="trash"
+                              danger
+                              disabled={busy === p.id}
+                              onClick={() => runRowAction(p, trashProduct, `"${p.name}" ট্র্যাশে সরানো হয়েছে। "ট্র্যাশ" ট্যাব থেকে ফেরত আনতে পারবেন।`)}
+                            >
+                              Trash
+                            </RowLink>,
+                            p.status === "published" && p.slug ? (
+                              <RowLink key="view" href={`/product/${p.slug}`}>View</RowLink>
+                            ) : null,
+                            <RowLink key="dup" disabled={busy === p.id} onClick={() => handleDuplicate(p)}>
+                              Duplicate
+                            </RowLink>,
+                          ]}
+                        />
+                      )}
+                    </td>
+                    <td className={td}>{p.designNumber || "—"}</td>
+                    <td className={`${td} font-semibold`}>
+                      {taka(p.price)}
+                      {p.regularPrice > p.price ? (
+                        <span className="ml-1 text-xs font-normal text-neutral-400 line-through">{taka(p.regularPrice)}</span>
+                      ) : null}
+                    </td>
+                    <td className={td}>
+                      <span className={p.stock <= 5 ? "font-semibold text-red-600" : ""}>{num(p.stock)}</span>
+                    </td>
+                    <td className={td}>{categoryName[p.category] || p.category || "—"}</td>
+                    <td className={td}>
+                      <Badge tone={STATUS_BADGE[p.status]?.tone ?? "neutral"}>{STATUS_BADGE[p.status]?.label ?? p.status}</Badge>
+                    </td>
+                    <td className={`${td} text-neutral-500`}>{p.id}</td>
+                  </tr>
+                )
+              )}
             </tbody>
           </TableWrap>
         ) : (
-          <EmptyState title="কোনো পণ্য পাওয়া যায়নি" description="নতুন পণ্য যোগ করুন বা ফিল্টার পরিবর্তন করুন।" />
+          <EmptyState
+            title={status === "trash" ? "ট্র্যাশ খালি" : "কোনো পণ্য পাওয়া যায়নি"}
+            description={status === "trash" ? undefined : "নতুন পণ্য যোগ করুন বা ফিল্টার পরিবর্তন করুন।"}
+          />
         )}
       </Card>
 
@@ -488,11 +705,11 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
 
       <ConfirmDialog
         open={Boolean(deleting)}
-        title="পণ্যটি মুছে ফেলতে চান?"
-        message={deleting ? `"${deleting.name}" ডাটাবেস থেকে স্থায়ীভাবে মুছে যাবে।` : ""}
+        title="পণ্যটি স্থায়ীভাবে মুছে ফেলতে চান?"
+        message={deleting ? `"${deleting.name}" ডাটাবেস থেকে চিরতরে মুছে যাবে, আর ফেরত আনা যাবে না।` : ""}
         onClose={() => setDeleting(null)}
         onConfirm={handleDelete}
-        confirmText={isDeleting ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, মুছুন"}
+        confirmText={isDeleting ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, স্থায়ীভাবে মুছুন"}
       />
     </>
   );

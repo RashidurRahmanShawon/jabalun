@@ -86,6 +86,11 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON public.orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON public.orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_orders_phone ON public.orders(phone);
 
+-- Order source (Facebook / TikTok / Google …). Safe to run again on an existing database.
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS source TEXT;
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS source_detail JSONB NOT NULL DEFAULT '{}'::jsonb;
+CREATE INDEX IF NOT EXISTS idx_orders_source ON public.orders(source);
+
 -- 4. Analytics & Behavior Events
 CREATE TABLE IF NOT EXISTS public.analytics_events (
     id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

@@ -1,5 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Invoice signatures/font live outside /public and are read at runtime
+  outputFileTracingIncludes: {
+    "/admin/invoice-asset/*": ["./private/invoice/**/*"],
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "cms.jabalun.com" },

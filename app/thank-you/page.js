@@ -2,6 +2,21 @@ import { timingSafeEqual } from "node:crypto";
 import Link from "next/link";
 import { getOrder } from "@/lib/woo";
 import { decodeEntities, formatTaka } from "@/lib/text";
+import { RecentOrderRecorder } from "@/components/DuplicateWarning";
+
+// What this browser remembers for the duplicate-order warning: no name, address or phone
+function recentSummary(order) {
+  return {
+    number: order.number,
+    date: order.created_at,
+    items: order.line_items.map((item) => ({
+      name: decodeEntities(item.name),
+      image: item.image || null,
+      quantity: item.quantity,
+    })),
+    total: Number(order.total) || 0,
+  };
+}
 
 export const metadata = {
   title: "অর্ডার সম্পন্ন — জাবালুন",
@@ -39,6 +54,10 @@ export default async function ThankYouPage({ searchParams }) {
       <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 text-center shadow-sm sm:p-8">
         {order ? (
           <>
+            <RecentOrderRecorder
+              summary={recentSummary(order)}
+              showInactiveNotice={firstValue(params.notice) === "retry"}
+            />
             <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-3xl text-green-700">
               ✓
             </div>

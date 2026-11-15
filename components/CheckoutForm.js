@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { readSource } from "@/lib/order-source";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { formatTaka } from "@/lib/text";
 import { calcDiscount, DISCOUNT_LABEL } from "@/lib/discount";
+import DuplicateWarning, { isDuplicateAcknowledged, setDuplicateAcknowledged } from "@/components/DuplicateWarning";
 
 const GENERIC_ERROR = "দুঃখিত, অর্ডারটি সম্পন্ন করা যায়নি। একটু পরে আবার চেষ্টা করুন।";
 const MAX_NOTE = 300;
@@ -91,6 +93,8 @@ export default function CheckoutForm({
   const [errors, setErrors] = useState({});
   const [serverError, setServerError] = useState("");
   const [submitting, setSubmittingState] = useState(false);
+  // Server said this phone ordered in the last 60 minutes: { orders, warningInactive }
+  const [duplicate, setDuplicate] = useState(null);
 
   function setSubmitting(value) {
     setSubmittingState(value);
@@ -113,6 +117,10 @@ export default function CheckoutForm({
     setServerError("");
     if (Object.keys(found).length > 0) return;
 
+    await placeOrder();
+  }
+
+  async function placeOrder() {
     setSubmitting(true);
     try {
       const res = await fetch("/api/order", {
@@ -125,9 +133,17 @@ export default function CheckoutForm({
           phone: normalizePhone(form.phone),
           note: form.note.trim(),
           website: form.website,
+          source: readSource(),
+          ...(isDuplicateAcknowledged() && { acknowledgedDuplicate: true }),
         }),
       });
       const data = await res.json().catch(() => ({}));
+
+      if (res.status === 409 && data.duplicate) {
+        setDuplicate({ orders: data.orders ?? [], warningInactive: Boolean(data.warningInactive) });
+        setSubmitting(false);
+        return;
+      }
 
       if (!res.ok || !data.id || !data.order_key) {
         setServerError(data.error || GENERIC_ERROR);
@@ -138,6 +154,7 @@ export default function CheckoutForm({
       onSuccess?.();
       // Stay disabled while navigating so the order can't be sent twice
       const params = new URLSearchParams({ order: String(data.id), key: data.order_key });
+      if (data.warningInactive) params.set("notice", "retry");
       router.push(`/thank-you?${params}`);
     } catch {
       setServerError(GENERIC_ERROR);
@@ -250,6 +267,17 @@ export default function CheckoutForm({
 
   const submit = (
     <>
+      <DuplicateWarning
+        open={duplicate !== null}
+        orders={duplicate?.orders}
+        warningInactive={duplicate?.warningInactive}
+        onClose={() => setDuplicate(null)}
+        onConfirm={() => {
+          setDuplicateAcknowledged(true);
+          setDuplicate(null);
+          placeOrder();
+        }}
+      />
       {serverError ? (
         <p role="alert" className="rounded-lg bg-red-50 px-4 py-3 text-sm text-red-700">
           {serverError}

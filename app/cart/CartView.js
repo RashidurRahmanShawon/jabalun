@@ -7,6 +7,9 @@ import { clearCart, MAX_QTY, removeFromCart, setQuantity, useCart } from "@/lib/
 import { formatTaka } from "@/lib/text";
 import { calcDiscount, DISCOUNT_LABEL } from "@/lib/discount";
 import CheckoutPanel from "@/app/product/[slug]/CheckoutPanel";
+import { useRouter } from "next/navigation";
+import { useDuplicateGate } from "@/components/DuplicateWarning";
+import { useSameDesignCheck } from "@/components/SameDesignWarning";
 
 const STORAGE_ERROR = "কার্ট আপডেট করা যায়নি। ব্রাউজারের স্টোরেজ বন্ধ থাকতে পারে।";
 
@@ -39,6 +42,19 @@ function useLivePrices(ids) {
 export default function CartView() {
   const items = useCart();
   const [checkoutOpen, setCheckoutOpen] = useState(false);
+  // Asks first when this browser placed an order in the last 60 minutes
+  const [requestCheckout, duplicatePopup] = useDuplicateGate(() => setCheckoutOpen(true));
+  const router = useRouter();
+  // Same design more than once? Show every piece and the price before checkout
+  const [checkSameDesign, sameDesignPopup] = useSameDesignCheck({
+    onProceed: requestCheckout,
+    onKeepOne: (ids) => run(() => ids.forEach((id) => setQuantity(id, 1))),
+    onSetQuantity: (id, quantity) => run(() => setQuantity(id, quantity)),
+    onOtherDesigns: (ids) => {
+      run(() => ids.forEach((id) => setQuantity(id, 1)));
+      router.push("/shop");
+    },
+  });
   const [error, setError] = useState("");
   const [placed, setPlaced] = useState(false);
   const { live, failed } = useLivePrices((items ?? []).map((item) => item.id));
@@ -185,7 +201,7 @@ export default function CartView() {
           type="button"
           disabled={orderable.length === 0 || live === null}
           data-track="cart-checkout"
-          onClick={() => setCheckoutOpen(true)}
+          onClick={() => checkSameDesign(orderable)}
           className="mt-5 w-full rounded-full bg-black px-6 py-3.5 font-semibold text-white transition hover:bg-neutral-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {live === null ? "দাম যাচাই হচ্ছে…" : "অর্ডার করুন"}
@@ -205,6 +221,8 @@ export default function CartView() {
           }
         }}
       />
+      {sameDesignPopup}
+      {duplicatePopup}
     </>
   );
 }

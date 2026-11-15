@@ -3,9 +3,11 @@
 import { useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { clearCart, MAX_ITEMS, MAX_QTY, readCart, setItemQuantity, useCart } from "@/lib/cart";
+import { clearCart, MAX_ITEMS, MAX_QTY, readCart, setItemQuantity, setQuantity, useCart } from "@/lib/cart";
 import { SITE, hasValue } from "@/lib/site";
 import { DISCOUNT_MIN_QTY } from "@/lib/discount";
+import { useDuplicateGate } from "@/components/DuplicateWarning";
+import { useSameDesignCheck } from "@/components/SameDesignWarning";
 
 // Checkout code is downloaded only when "order" is pressed for the first time
 const CheckoutPanel = dynamic(() => import("@/app/product/[slug]/CheckoutPanel"), { ssr: false });
@@ -178,7 +180,8 @@ export default function CollectionPicker({ designs, title, price }) {
   function openCheckout() {
     setCheckoutLoaded(true);
     setCheckoutItems(
-      (items ?? []).map(({ id, name, price, quantity, hijab }) => ({
+      // Read the cart fresh: the same-design popup may have just changed quantities
+      readCart().map(({ id, name, price, quantity, hijab }) => ({
         id,
         name,
         price,
@@ -187,6 +190,30 @@ export default function CollectionPicker({ designs, title, price }) {
       }))
     );
   }
+
+  // Asks first when this browser placed an order in the last 60 minutes
+  const [requestCheckout, duplicatePopup] = useDuplicateGate(openCheckout);
+  // Same design more than once? Show every piece and the price before checkout
+  const [checkSameDesign, sameDesignPopup] = useSameDesignCheck({
+    onProceed: requestCheckout,
+    onKeepOne: (ids) =>
+      run(() => {
+        for (const id of ids) setQuantity(id, 1);
+        setChosenTarget(null); // "how many" follows the new total
+      }),
+    onSetQuantity: (id, quantity) =>
+      run(() => {
+        setQuantity(id, quantity);
+        setChosenTarget(null); // "how many" follows the new total
+      }),
+    onOtherDesigns: (ids) =>
+      run(() => {
+        for (const id of ids) setQuantity(id, 1);
+        setChosenTarget(target); // keep the total, so the freed pieces can go to other designs
+        setShowAll(true);
+        document.getElementById("pick-count")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      }),
+  });
 
   const remaining = target - selectedPieces;
   const ready = items !== null && selectedPieces > 0 && remaining === 0;
@@ -401,7 +428,7 @@ export default function CollectionPicker({ designs, title, price }) {
           <button
             type="button"
             data-track="collection-checkout"
-            onClick={openCheckout}
+            onClick={() => checkSameDesign(items ?? [])}
             disabled={!ready}
             className="flex-1 rounded-lg bg-green-600 px-6 py-3 font-bold text-white shadow transition hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-green-300"
           >
@@ -445,6 +472,8 @@ export default function CollectionPicker({ designs, title, price }) {
           }}
         />
       ) : null}
+      {sameDesignPopup}
+      {duplicatePopup}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import MetaPixel from "@/components/MetaPixel";
 import SiteChrome from "@/components/SiteChrome";
 import ConsentBanner from "@/components/ConsentBanner";
 import AnalyticsTracker from "@/components/AnalyticsTracker";
+import SourceCapture from "@/components/SourceCapture";
 
 const hindSiliguri = Hind_Siliguri({
   variable: "--font-bangla",
@@ -32,6 +33,7 @@ export default function RootLayout({ children }) {
               <MetaPixel />
               <ConsentBanner />
               <AnalyticsTracker />
+              <SourceCapture />
             </>
           }
         >

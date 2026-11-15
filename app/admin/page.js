@@ -2,19 +2,57 @@ import Link from "next/link";
 import { Banknote, Percent, ShoppingCart, TrendingUp, TriangleAlert } from "lucide-react";
 import { Badge, Card, ConnectionError, EmptyState, KpiCard, PageHeader } from "@/components/admin/ui";
 import SalesChart from "@/components/admin/SalesChart";
+import CategoryPie from "@/components/admin/CategoryPie";
 import { requireAdmin } from "@/lib/admin/session";
-import { loadAdminProducts, loadOverview, statusInfo } from "@/lib/admin/data";
+import { loadAdminProducts, loadCategorySales, loadOverview, statusInfo } from "@/lib/admin/data";
 import { dateTime, num, taka } from "@/lib/admin/format";
 
 export const metadata = { title: "ওভারভিউ" };
 
-export default async function AdminOverviewPage() {
+const MIX_PERIODS = { "30d": "গত ৩০ দিন", all: "সব সময়" };
+
+export default async function AdminOverviewPage({ searchParams }) {
   await requireAdmin();
-  const [overview, stock] = await Promise.all([loadOverview(), loadAdminProducts()]);
+  const params = await searchParams;
+  const mixPeriod = params?.mix === "all" ? "all" : "30d";
+  const [overview, stock, mix] = await Promise.all([loadOverview(), loadAdminProducts(), loadCategorySales(mixPeriod)]);
 
   return (
     <>
       <PageHeader title="ওভারভিউ" description="গত ৩০ দিনের অর্ডারের সারাংশ (ঢাকার সময়)" />
+
+      <Card
+        title={`ক্যাটাগরি অনুযায়ী বিক্রি — ${MIX_PERIODS[mixPeriod]}`}
+        className="mb-6"
+        action={
+          <div className="flex gap-1 rounded-full bg-neutral-100 p-1" role="group" aria-label="সময়কাল">
+            {Object.entries(MIX_PERIODS).map(([id, label]) => (
+              <Link
+                key={id}
+                href={id === "30d" ? "/admin" : `/admin?mix=${id}`}
+                scroll={false}
+                aria-current={mixPeriod === id ? "true" : undefined}
+                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                  mixPeriod === id ? "bg-white text-neutral-900 shadow-sm" : "text-neutral-600 hover:text-neutral-900"
+                }`}
+              >
+                {label}
+              </Link>
+            ))}
+          </div>
+        }
+      >
+        {mix.error ? (
+          <ConnectionError message={mix.error} />
+        ) : (
+          <>
+            <CategoryPie rows={mix.rows} totalUnits={mix.totalUnits} />
+            <p className="mt-4 text-xs text-neutral-500">
+              শতাংশ = বিক্রি হওয়া পিসের হিসাবে (বাতিল অর্ডার বাদে)। টাকা ছাড়ের আগের দাম। নতুন ক্যাটাগরি যোগ করলে তা নিজের রঙে এখানে চলে আসবে।
+            </p>
+          </>
+        )}
+      </Card>
 
       {overview.error ? (
         <ConnectionError message={overview.error} />

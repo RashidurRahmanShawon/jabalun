@@ -1,18 +1,59 @@
 "use client";
 
-import { Printer } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { Printer, Save } from "lucide-react";
 import { Button } from "./ui";
+import { changeOrderStatus } from "@/app/admin/orders/actions";
 
-// Status changes are read-only for now (writing to WooCommerce needs separate approval)
-export default function OrderToolbar() {
+// statuses: [{ id, label }]
+export default function OrderToolbar({ orderId, status, statuses }) {
+  const router = useRouter();
+  const [value, setValue] = useState(status);
+  const [message, setMessage] = useState(null);
+  const [pending, startTransition] = useTransition();
+
+  const save = () => {
+    setMessage(null);
+    startTransition(async () => {
+      const result = await changeOrderStatus(orderId, value);
+      if (result?.error) {
+        setMessage({ tone: "error", text: result.error });
+      } else {
+        setMessage({ tone: "ok", text: "স্ট্যাটাস সংরক্ষণ হয়েছে" });
+        router.refresh();
+      }
+    });
+  };
+
   return (
     <div className="flex flex-wrap items-center gap-2 print:hidden">
+      <label className="sr-only" htmlFor="order-status">স্ট্যাটাস</label>
+      <select
+        id="order-status"
+        value={value}
+        onChange={(e) => {
+          setValue(e.target.value);
+          setMessage(null);
+        }}
+        disabled={pending}
+        className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm"
+      >
+        {statuses.map((s) => (
+          <option key={s.id} value={s.id}>{s.label}</option>
+        ))}
+      </select>
+      <Button onClick={save} disabled={pending || value === status}>
+        <Save className="h-4 w-4" /> {pending ? "সংরক্ষণ হচ্ছে…" : "স্ট্যাটাস সংরক্ষণ"}
+      </Button>
       <Button variant="secondary" onClick={() => window.print()}>
         <Printer className="h-4 w-4" /> ইনভয়েস প্রিন্ট
       </Button>
-      <Button variant="secondary" disabled title="শীঘ্রই">
-        স্ট্যাটাস বদলান <span className="text-xs font-normal">(শীঘ্রই)</span>
-      </Button>
+      {message ? (
+        <span className={`text-sm ${message.tone === "error" ? "text-red-600" : "text-green-700"}`} role="status">
+          {message.text}
+        </span>
+      ) : null}
     </div>
   );
 }
