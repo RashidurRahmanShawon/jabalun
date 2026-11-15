@@ -21,7 +21,11 @@ const loadProduct = cache(getProductBySlug);
 
 export async function generateMetadata({ params }) {
   const { slug } = await params;
-  const product = await loadProduct(slug);
+  let decodedSlug = slug;
+  try {
+    decodedSlug = decodeURIComponent(slug);
+  } catch {}
+  const product = await loadProduct(decodedSlug);
   if (!product) return { title: "পণ্য পাওয়া যায়নি — জাবালুন" };
 
   return {
@@ -47,7 +51,11 @@ const HTML_CONTENT =
 
 export default async function ProductPage({ params }) {
   const { slug } = await params;
-  const product = await loadProduct(slug);
+  let decodedSlug = slug;
+  try {
+    decodedSlug = decodeURIComponent(slug);
+  } catch {}
+  const product = await loadProduct(decodedSlug);
   if (!product) notFound();
 
   const related = await loadRelated(product);
