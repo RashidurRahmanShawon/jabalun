@@ -125,12 +125,19 @@ export default async function AdminOrderDetailPage({ params }) {
                   {items.map((item) => (
                     <tr key={item.id}>
                       <td className="py-3 pr-3">
-                        <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-4">
+                          {/* Large photo so the exact design is easy to pick when packing; click for full size */}
                           {item.image ? (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img src={item.image} alt="" className="h-14 w-14 shrink-0 rounded-lg border border-neutral-200 object-cover" />
+                            <a href={item.image} target="_blank" rel="noopener noreferrer" title="পুরো ছবি দেখুন" className="shrink-0">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={item.image}
+                                alt={item.name}
+                                className="h-32 w-24 rounded-xl border border-neutral-200 object-cover transition hover:opacity-90 sm:h-48 sm:w-36"
+                              />
+                            </a>
                           ) : (
-                            <div className="h-14 w-14 shrink-0 rounded-lg bg-neutral-100" />
+                            <div className="h-32 w-24 shrink-0 rounded-xl bg-neutral-100 sm:h-48 sm:w-36" />
                           )}
                           <div>
                             <p className="font-semibold text-neutral-900">{item.name}</p>

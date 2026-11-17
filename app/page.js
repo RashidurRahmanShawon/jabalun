@@ -18,6 +18,9 @@ const FEATURES = [
   { icon: "🔒", title: "নিরাপদ পেমেন্ট" },
 ];
 
+// Home page shows 2 rows of 4 per category; "সব দেখুন" opens the rest
+const HOME_LIMIT = 8;
+
 // Order matters: a product in both categories is shown only in the first
 const SECTIONS = [
   {
@@ -61,7 +64,7 @@ async function loadSections() {
       seen.add(product.id);
       return true;
     });
-    return { ...section, products, failed: results[i].failed };
+    return { ...section, products: products.slice(0, HOME_LIMIT), total: products.length, failed: results[i].failed };
   });
 }
 
@@ -145,7 +148,7 @@ function CategoryTabs() {
 }
 
 function CategorySection({ section }) {
-  const { id, slug, title, description, allDesignsHref, products, failed } = section;
+  const { id, slug, title, description, allDesignsHref, products, total, failed } = section;
 
   return (
     <section id={id} className="scroll-mt-36 even:bg-neutral-50">
@@ -184,7 +187,7 @@ function CategorySection({ section }) {
             data-track={`home-see-all-${slug}`}
             className="inline-block rounded-full border-2 border-black px-8 py-2.5 font-semibold text-black transition hover:bg-black hover:text-white"
           >
-            সব দেখুন
+            {total > products.length ? `সব ${total}টি ডিজাইন দেখুন` : "সব দেখুন"}
           </Link>
         </div>
       </div>

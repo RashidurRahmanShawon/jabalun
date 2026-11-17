@@ -182,3 +182,16 @@ GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
 GRANT ALL ON ALL SEQUENCES IN SCHEMA public TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO anon, authenticated, service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO anon, authenticated, service_role;
+
+-- Customer profiles edited in the admin (see supabase/migrations/2026-11-17-customers.sql)
+CREATE TABLE IF NOT EXISTS public.customers (
+  phone       TEXT PRIMARY KEY,
+  name        TEXT,
+  address     TEXT,
+  status      TEXT NOT NULL DEFAULT 'regular',
+  note        TEXT,
+  deleted_at  TIMESTAMPTZ,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE public.customers ENABLE ROW LEVEL SECURITY;

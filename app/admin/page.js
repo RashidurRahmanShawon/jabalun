@@ -46,9 +46,9 @@ export default async function AdminOverviewPage({ searchParams }) {
           <ConnectionError message={mix.error} />
         ) : (
           <>
-            <CategoryPie rows={mix.rows} totalUnits={mix.totalUnits} />
+            <CategoryPie rows={mix.rows} />
             <p className="mt-4 text-xs text-neutral-500">
-              শতাংশ = বিক্রি হওয়া পিসের হিসাবে (বাতিল অর্ডার বাদে)। টাকা ছাড়ের আগের দাম। নতুন ক্যাটাগরি যোগ করলে তা নিজের রঙে এখানে চলে আসবে।
+              বাম চার্ট = কত পিস বিক্রি হয়েছে, ডান চার্ট = কত টাকার বিক্রি হয়েছে (বাতিল অর্ডার বাদে)। টাকা ছাড়ের আগের দাম। নতুন ক্যাটাগরি যোগ করলে তা নিজের রঙে এখানে চলে আসবে।
             </p>
           </>
         )}
