@@ -8,7 +8,7 @@ export const metadata = {
 };
 
 // WooCommerce allows at most 100 per request; the store has fewer for now
-const PER_PAGE = 100;
+const PER_PAGE = 500; // khimar alone has 100+ designs
 
 const TABS = [
   { slug: "", label: "সব পণ্য" },

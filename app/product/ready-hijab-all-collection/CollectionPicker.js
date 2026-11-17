@@ -12,19 +12,20 @@ import { useSameDesignCheck } from "@/components/SameDesignWarning";
 // Checkout code is downloaded only when "order" is pressed for the first time
 const CheckoutPanel = dynamic(() => import("@/app/product/[slug]/CheckoutPanel"), { ssr: false });
 
-const INITIAL_VISIBLE = 40;
-const EAGER_THUMBS = 10; // first two rows (5 per row on desktop)
+const INITIAL_VISIBLE = 15; // 3 rows of 5 on desktop, 5 rows of 3 on mobile; the rest on a button tap
+const EAGER_THUMBS = 10; // first two rows on desktop
 const GOLD = "#b8860b";
 // Latin digits on purpose: the Bangla "১" is hard to read at button size in this font
 const bn = (n) => String(n);
 
 function label(design) {
-  return design.number !== null ? String(design.number) : design.name || "ডিজাইন";
+  return design.code || design.name || "ডিজাইন";
 }
 
-function toCartProduct(design) {
+// hijab: counts toward the ready-hijab 3+ = 10% offer
+function toCartProduct(design, hijab) {
   const { id, slug, name, price, image } = design;
-  return { id, slug, name, price, image, hijab: true };
+  return { id, slug, name, price, image, hijab };
 }
 
 function ZoomDialog({ design, onClose }) {
@@ -99,7 +100,7 @@ const MAX_PIECES = 100;
 
 // "Pick how many pieces, then tap designs" — a tap adds 1 piece of that design to jabalun_cart;
 // the stepper next to "order" changes the pieces of the design shown in the main image.
-export default function CollectionPicker({ designs, title, price }) {
+export default function CollectionPicker({ designs, title, price, tag, hijab = false }) {
   const items = useCart();
   const [chosenTarget, setChosenTarget] = useState(null);
   const [activeId, setActiveId] = useState(null);
@@ -159,7 +160,7 @@ export default function CollectionPicker({ designs, title, price }) {
           return;
         }
       }
-      if (setItemQuantity(toCartProduct(design), 1) === "full") {
+      if (setItemQuantity(toCartProduct(design, hijab), 1) === "full") {
         setMessage(`একটি অর্ডারে সর্বোচ্চ ${bn(MAX_ITEMS)}টি ভিন্ন পণ্য রাখা যায়।`);
       }
     });
@@ -264,7 +265,7 @@ export default function CollectionPicker({ designs, title, price }) {
 
       {/* Details and picker */}
       <div>
-        <p className="text-sm font-semibold" style={{ color: GOLD }}>রেডি হিজাব</p>
+        <p className="text-sm font-semibold" style={{ color: GOLD }}>{tag}</p>
         <h1 className="mt-2 text-2xl font-bold leading-snug text-neutral-900 sm:text-3xl">{title}</h1>
         {price ? (
           <p className="mt-3 text-2xl font-bold" style={{ color: GOLD }}>
@@ -274,17 +275,19 @@ export default function CollectionPicker({ designs, title, price }) {
 
         <p className="mt-5 font-semibold text-neutral-800">আপনার পছন্দের ডিজাইন বেছে নিন:</p>
 
-        <div className="mt-3 flex items-center gap-3 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-100 via-yellow-200 to-amber-300 px-4 py-3">
-          <span aria-hidden="true" className="text-2xl">🏷️</span>
-          <p className="flex-1 text-sm font-semibold text-neutral-900">
-            ৩টি বা তার বেশি নিলে
-            <span className="block text-base font-bold">স্পেশাল অফার!</span>
-          </p>
-          <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-xs font-bold leading-tight text-white shadow">
-            ১০%
-            <span>ছাড়</span>
-          </span>
-        </div>
+        {hijab ? (
+          <div className="mt-3 flex items-center gap-3 rounded-xl border border-amber-300 bg-gradient-to-r from-amber-100 via-yellow-200 to-amber-300 px-4 py-3">
+            <span aria-hidden="true" className="text-2xl">🏷️</span>
+            <p className="flex-1 text-sm font-semibold text-neutral-900">
+              ৩টি বা তার বেশি নিলে
+              <span className="block text-base font-bold">স্পেশাল অফার!</span>
+            </p>
+            <span className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-full bg-gradient-to-br from-rose-500 to-red-600 text-xs font-bold leading-tight text-white shadow">
+              ১০%
+              <span>ছাড়</span>
+            </span>
+          </div>
+        ) : null}
 
         {/* Quick picks; any other count is set with the stepper below */}
         <div className="mt-3 grid grid-cols-3 gap-2" role="group" aria-label="কয়টি নেবেন">
@@ -298,7 +301,7 @@ export default function CollectionPicker({ designs, title, price }) {
               className={optionClass(target === count)}
             >
               {bn(count)}টি নেব
-              {count === DISCOUNT_MIN_QTY ? (
+              {hijab && count === DISCOUNT_MIN_QTY ? (
                 <span className="absolute -right-1 -top-2.5 rounded-full bg-red-600 px-1.5 py-0.5 text-[10px] font-bold text-white">
                   ১০% ছাড়
                 </span>
@@ -346,7 +349,7 @@ export default function CollectionPicker({ designs, title, price }) {
           </p>
         ) : null}
 
-        <ul className="mt-3 grid grid-cols-4 gap-2 sm:grid-cols-5">
+        <ul className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-5">
           {visible.map((design, index) => {
             const isSelected = selectedIds.has(design.id);
             return (
@@ -365,7 +368,7 @@ export default function CollectionPicker({ designs, title, price }) {
                     design={design}
                     width={210}
                     height={280}
-                    sizes="(min-width: 768px) 105px, 23vw"
+                    sizes="(min-width: 768px) 105px, (min-width: 640px) 18vw, 31vw"
                     quality={70}
                     loading={index < EAGER_THUMBS ? "eager" : "lazy"}
                     // "low" keeps React from adding <link rel=preload> for eager thumbnails,
@@ -391,9 +394,10 @@ export default function CollectionPicker({ designs, title, price }) {
           <button
             type="button"
             onClick={() => setShowAll(true)}
-            className="mt-3 w-full rounded-lg border-2 border-[#d4a017] bg-white py-2 text-sm font-semibold text-neutral-800 hover:bg-amber-50"
+            data-track="collection-show-more"
+            className="mt-3 w-full rounded-lg border-2 border-[#d4a017] bg-white py-3 text-base font-semibold text-neutral-800 hover:bg-amber-50"
           >
-            আরও ডিজাইন দেখুন ({bn(hiddenCount)}টি বাকি) ▼
+            আরো ডিজাইন দেখতে ক্লিক করুন ({bn(hiddenCount)}টি বাকি) ▼
           </button>
         ) : null}
 

@@ -28,6 +28,7 @@ const SECTIONS = [
     slug: "khimar-plazu-set",
     title: "খিমার প্লাজু সেট",
     description: "খিমার ও প্লাজুর মানানসই সেট — একসাথে পরুন, পূর্ণ পর্দা ও আরামে।",
+    allDesignsHref: "/product/khimar-plazu-all-collection",
   },
   {
     id: "instant-ready-hijab",
@@ -45,7 +46,7 @@ async function loadCategoryProducts(slug) {
       console.warn(`Category not found: ${slug}`);
       return { products: [], failed: false };
     }
-    return { products: await getProductsByCategory(categoryId), failed: false };
+    return { products: await getProductsByCategory(categoryId, { perPage: 500 }), failed: false };
   } catch (error) {
     console.error(`Failed to load products for ${slug}:`, error.message);
     return { products: [], failed: true };
