@@ -209,7 +209,7 @@ export default function CartView() {
       </div>
 
       <CheckoutPanel
-        items={orderable.map(({ id, name, price, quantity, eligible }) => ({ id, name, price, quantity, eligible }))}
+        items={orderable.map(({ id, name, image, price, quantity, eligible }) => ({ id, name, image, price, quantity, eligible }))}
         open={checkoutOpen}
         onClose={() => setCheckoutOpen(false)}
         onSuccess={() => {

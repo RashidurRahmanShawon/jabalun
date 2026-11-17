@@ -181,9 +181,10 @@ export default function CollectionPicker({ designs, title, price }) {
     setCheckoutLoaded(true);
     setCheckoutItems(
       // Read the cart fresh: the same-design popup may have just changed quantities
-      readCart().map(({ id, name, price, quantity, hijab }) => ({
+      readCart().map(({ id, name, image, price, quantity, hijab }) => ({
         id,
         name,
+        image,
         price,
         quantity,
         eligible: hijab,
