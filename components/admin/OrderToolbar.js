@@ -2,16 +2,31 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Printer, Save } from "lucide-react";
+import { Printer, Save, Trash2 } from "lucide-react";
 import { Button } from "./ui";
-import { changeOrderStatus } from "@/app/admin/orders/actions";
+import { ConfirmDialog } from "./Modal";
+import { changeOrderStatus, deleteOrdersAction } from "@/app/admin/orders/actions";
 
 // statuses: [{ id, label }]
-export default function OrderToolbar({ orderId, status, statuses }) {
+export default function OrderToolbar({ orderId, orderNumber, status, statuses }) {
   const router = useRouter();
   const [value, setValue] = useState(status);
   const [message, setMessage] = useState(null);
   const [pending, startTransition] = useTransition();
+  const [confirming, setConfirming] = useState(false);
+
+  const remove = () => {
+    setConfirming(false);
+    setMessage(null);
+    startTransition(async () => {
+      const result = await deleteOrdersAction([orderId]);
+      if (result?.error || result?.deleted === 0) {
+        setMessage({ tone: "error", text: result?.error || "অর্ডারটি মোছা যায়নি।" });
+      } else {
+        router.replace("/admin/orders");
+      }
+    });
+  };
 
   const save = () => {
     setMessage(null);
@@ -49,11 +64,22 @@ export default function OrderToolbar({ orderId, status, statuses }) {
       <Button variant="secondary" onClick={() => window.print()}>
         <Printer className="h-4 w-4" /> ইনভয়েস প্রিন্ট
       </Button>
+      <Button variant="secondary" className="text-red-700 hover:bg-red-50" onClick={() => setConfirming(true)} disabled={pending}>
+        <Trash2 className="h-4 w-4" /> অর্ডার মুছুন
+      </Button>
       {message ? (
         <span className={`text-sm ${message.tone === "error" ? "text-red-600" : "text-green-700"}`} role="status">
           {message.text}
         </span>
       ) : null}
+      <ConfirmDialog
+        open={confirming}
+        title={`অর্ডার #${orderNumber ?? orderId} মুছে ফেলবেন?`}
+        message={'অর্ডারটি স্থায়ীভাবে মুছে যাবে, আর ফেরত আনা যাবে না। (শুধু বাতিল করতে চাইলে স্ট্যাটাস "Cancelled" করুন।)'}
+        confirmLabel="হ্যাঁ, মুছে ফেলুন"
+        onConfirm={remove}
+        onClose={() => setConfirming(false)}
+      />
     </div>
   );
 }

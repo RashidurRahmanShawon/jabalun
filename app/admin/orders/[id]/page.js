@@ -103,6 +103,7 @@ export default async function AdminOrderDetailPage({ params }) {
         <OrderToolbar
           key={order.status}
           orderId={order.id}
+          orderNumber={order.number}
           status={order.status}
           statuses={STATUS_OPTIONS.map((s) => ({ id: s, label: statusInfo(s).label }))}
         />

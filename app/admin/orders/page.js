@@ -3,6 +3,7 @@ import { CalendarDays, CalendarRange, Sun } from "lucide-react";
 import { Badge, Card, ConnectionError, EmptyState, PageHeader, TableWrap, td, th } from "@/components/admin/ui";
 import Pagination from "@/components/admin/Pagination";
 import ClickableRow from "@/components/admin/ClickableRow";
+import { BulkDeleteBar, OrderCheckbox, OrderSelectionProvider, SelectAllCheckbox } from "@/components/admin/OrderSelection";
 import { requireAdmin } from "@/lib/admin/session";
 import { DATE_FILTERS, dateFilterLabel, loadOrderList, statusInfo } from "@/lib/admin/data";
 import { dateTime, num, taka } from "@/lib/admin/format";
@@ -142,9 +143,12 @@ export default async function AdminOrdersPage({ searchParams }) {
         </div>
 
         {data.orders.length > 0 ? (
+          <OrderSelectionProvider orders={data.orders.map((o) => ({ id: o.id, number: o.number }))}>
+          <BulkDeleteBar />
           <TableWrap>
             <thead>
               <tr>
+                <th className={`${th} w-8`}><SelectAllCheckbox /></th>
                 <th className={th}>অর্ডার নম্বর</th>
                 <th className={th}>তারিখ</th>
                 <th className={th}>ক্রেতা</th>
@@ -160,6 +164,9 @@ export default async function AdminOrdersPage({ searchParams }) {
                 const src = sourceInfo(o.source);
                 return (
                   <ClickableRow key={o.id} href={`/admin/orders/${o.id}`}>
+                    <td className={`${td} w-8`}>
+                      <OrderCheckbox id={o.id} number={o.number} />
+                    </td>
                     <td className={td}>
                       <Link href={`/admin/orders/${o.id}`} className="font-semibold text-[#b45309] hover:underline">
                         #{o.number}
@@ -180,6 +187,7 @@ export default async function AdminOrdersPage({ searchParams }) {
               })}
             </tbody>
           </TableWrap>
+          </OrderSelectionProvider>
         ) : (
           <EmptyState title={page > 1 ? "এই পেজে কোনো অর্ডার নেই" : "এই ফিল্টারে কোনো অর্ডার নেই"} />
         )}
