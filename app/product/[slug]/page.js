@@ -114,15 +114,9 @@ export default async function ProductPage({ params }) {
               ) : null}
             </div>
 
-            {product.short_description ? (
-              <div
-                className={`mt-5 ${HTML_CONTENT}`}
-                dangerouslySetInnerHTML={{ __html: product.short_description }}
-              />
-            ) : null}
-
-            <p className="mt-5 rounded-lg bg-neutral-50 px-4 py-3 text-sm font-medium text-neutral-700">
-              ক্যাশ অন ডেলিভারি • সম্পূর্ণ বাংলাদেশে ফ্রি ডেলিভারি
+            {/* Short note only; the full description stays below in "পণ্যের বিবরণ" */}
+            <p className="mt-5 rounded-lg bg-neutral-50 px-4 py-3 text-base font-medium text-neutral-800">
+              🚚 ডেলিভারি চার্জ একদম ফ্রি, এবং পণ্য হাতে পেয়ে টাকা পরিশোধ করুন।
             </p>
 
             <div className="mt-6">
