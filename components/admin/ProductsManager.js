@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
-import { CheckCircle2, ImageOff, Loader2, Plus, Search, UploadCloud } from "lucide-react";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { ArchiveRestore, CheckCircle2, ImageOff, Loader2, Plus, Search, Trash2, UploadCloud } from "lucide-react";
 import { Badge, Button, Card, EmptyState, Field, TableWrap, Toggle, inputClass, td, th } from "./ui";
 import { ConfirmDialog, Modal } from "./Modal";
 import { num, taka } from "@/lib/admin/format";
 import {
+  bulkProductAction,
   duplicateProduct,
   removeProduct,
   restoreProduct,
@@ -383,7 +384,7 @@ function QuickEditRow({ product, categories, onCancel, onSave }) {
   const id = (field) => `qe-${field}-${product.id}`;
   return (
     <tr className="bg-amber-50/60">
-      <td colSpan={8} className="px-3 py-4">
+      <td colSpan={9} className="px-3 py-4">
         <form onSubmit={save}>
           <p className="mb-3 text-sm font-bold text-neutral-900">কুইক এডিট — ID {product.id}</p>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -427,6 +428,42 @@ function QuickEditRow({ product, categories, onCancel, onSave }) {
   );
 }
 
+const boxClass = "h-4 w-4 cursor-pointer accent-[#b45309]";
+
+function SelectAllBox({ total, count, onChange }) {
+  const ref = useRef(null);
+  const all = total > 0 && count === total;
+  useEffect(() => {
+    if (ref.current) ref.current.indeterminate = count > 0 && !all;
+  }, [count, all]);
+  return (
+    <label className="-m-2 inline-flex cursor-pointer p-2">
+      <input ref={ref} type="checkbox" className={boxClass} checked={all} onChange={(e) => onChange(e.target.checked)} aria-label="দেখানো সব পণ্য নির্বাচন করুন" />
+    </label>
+  );
+}
+
+const BULK = {
+  trash: {
+    title: (n) => `${n}টি পণ্য ট্র্যাশে সরাবেন?`,
+    message: 'পণ্যগুলো সাইট থেকে লুকিয়ে যাবে। পরে "ট্র্যাশ" ট্যাব থেকে ফেরত আনতে পারবেন।',
+    confirm: "হ্যাঁ, ট্র্যাশে সরান",
+    done: (n) => `${n}টি পণ্য ট্র্যাশে সরানো হয়েছে। "ট্র্যাশ" ট্যাব থেকে ফেরত আনতে পারবেন।`,
+  },
+  restore: {
+    title: (n) => `${n}টি পণ্য ফেরত আনবেন?`,
+    message: "পণ্যগুলো ড্রাফট হিসেবে ফিরবে। সাইটে দেখাতে চাইলে পরে প্রকাশ করুন।",
+    confirm: "হ্যাঁ, ফেরত আনুন",
+    done: (n) => `✓ ${n}টি পণ্য ফেরত আনা হয়েছে (ড্রাফট হিসেবে)।`,
+  },
+  delete: {
+    title: (n) => `${n}টি পণ্য স্থায়ীভাবে মুছে ফেলবেন?`,
+    message: "পণ্যগুলো ডাটাবেস থেকে চিরতরে মুছে যাবে, আর ফেরত আনা যাবে না।",
+    confirm: "হ্যাঁ, স্থায়ীভাবে মুছুন",
+    done: (n) => `✓ ${n}টি পণ্য স্থায়ীভাবে মুছে ফেলা হয়েছে।`,
+  },
+};
+
 export default function ProductsManager({ initialProducts = [], categories = [] }) {
   const [products, setProducts] = useState(() => initialProducts.map(normalizeProduct));
   const [query, setQuery] = useState("");
@@ -438,6 +475,9 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
   const [busy, setBusy] = useState(null); // id of the row an action is running on
   const [notice, setNotice] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+  const [picked, setPicked] = useState(() => new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(null); // "trash" | "restore" | "delete"
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const categoryName = Object.fromEntries(categories.map((c) => [c.id, c.name]));
   const q = query.trim().toLowerCase();
@@ -453,6 +493,37 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
       (!category || p.category === category) &&
       (status ? p.status === status : p.status !== "trash")
   );
+
+  // Only rows currently shown count as selected (tab, search or category may hide some)
+  const chosen = visible.filter((p) => picked.has(p.id));
+  const togglePick = (id) =>
+    setPicked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  async function runBulk() {
+    const action = bulkConfirm;
+    setBulkBusy(true);
+    const res = await bulkProductAction(chosen.map((p) => p.id), action);
+    setBulkBusy(false);
+    setBulkConfirm(null);
+    if (res?.error) {
+      alert(`কাজটি করা যায়নি: ${res.error}`);
+      return;
+    }
+    if (action === "delete") {
+      const gone = new Set(res.ids);
+      setProducts((list) => list.filter((p) => !gone.has(p.id)));
+    } else {
+      const saved = new Map(res.products.map((row) => [row.id, normalizeProduct(row)]));
+      setProducts((list) => list.map((p) => saved.get(p.id) ?? p));
+    }
+    setPicked(new Set());
+    flash(BULK[action].done(res.count));
+  }
 
   const openEditor = (p) => setEditing({ ...p, price: String(p.price), stock: String(p.stock) });
 
@@ -531,6 +602,7 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
                 onClick={() => {
                   setStatus(t.id);
                   setQuickEdit(null);
+                  setPicked(new Set());
                 }}
                 aria-pressed={status === t.id}
                 className={status === t.id ? "font-bold text-neutral-900" : "text-[#b45309] hover:underline"}
@@ -579,10 +651,40 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
           </p>
         ) : null}
 
+        {chosen.length > 0 ? (
+          <div className="sticky top-0 z-20 -mx-5 mb-3 flex flex-wrap items-center gap-3 border-y border-amber-200 bg-amber-50 px-5 py-2.5">
+            <span className="text-sm font-semibold text-neutral-800">{num(chosen.length)}টি পণ্য নির্বাচিত</span>
+            {status === "trash" ? (
+              <>
+                <Button variant="secondary" onClick={() => setBulkConfirm("restore")} disabled={bulkBusy}>
+                  <ArchiveRestore className="h-4 w-4" aria-hidden="true" /> ফেরত আনুন
+                </Button>
+                <Button variant="danger" onClick={() => setBulkConfirm("delete")} disabled={bulkBusy}>
+                  <Trash2 className="h-4 w-4" aria-hidden="true" /> স্থায়ীভাবে মুছুন
+                </Button>
+              </>
+            ) : (
+              <Button variant="danger" onClick={() => setBulkConfirm("trash")} disabled={bulkBusy}>
+                <Trash2 className="h-4 w-4" aria-hidden="true" /> ট্র্যাশে সরান
+              </Button>
+            )}
+            <Button variant="ghost" onClick={() => setPicked(new Set())} disabled={bulkBusy}>
+              নির্বাচন বাতিল
+            </Button>
+          </div>
+        ) : null}
+
         {visible.length > 0 ? (
           <TableWrap>
             <thead>
               <tr>
+                <th className={`${th} w-8`}>
+                  <SelectAllBox
+                    total={visible.length}
+                    count={chosen.length}
+                    onChange={(on) => setPicked(on ? new Set(visible.map((p) => p.id)) : new Set())}
+                  />
+                </th>
                 <th className={th}>ছবি</th>
                 <th className={th}>নাম</th>
                 <th className={th}>ডিজাইন</th>
@@ -604,7 +706,18 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
                     onSave={handleSave}
                   />
                 ) : (
-                  <tr key={p.id} className="group transition hover:bg-neutral-50">
+                  <tr key={p.id} className={`group transition hover:bg-neutral-50 ${picked.has(p.id) ? "bg-amber-50/60" : ""}`}>
+                    <td className={`${td} w-8`}>
+                      <label className="-m-2 inline-flex cursor-pointer p-2">
+                        <input
+                          type="checkbox"
+                          className={boxClass}
+                          checked={picked.has(p.id)}
+                          onChange={() => togglePick(p.id)}
+                          aria-label={`${p.name} নির্বাচন করুন`}
+                        />
+                      </label>
+                    </td>
                     <td className={td}>
                       {p.image ? (
                         // eslint-disable-next-line @next/next/no-img-element
@@ -709,7 +822,22 @@ export default function ProductsManager({ initialProducts = [], categories = [] 
         message={deleting ? `"${deleting.name}" ডাটাবেস থেকে চিরতরে মুছে যাবে, আর ফেরত আনা যাবে না।` : ""}
         onClose={() => setDeleting(null)}
         onConfirm={handleDelete}
-        confirmText={isDeleting ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, স্থায়ীভাবে মুছুন"}
+        confirmLabel={isDeleting ? "মুছে ফেলা হচ্ছে…" : "হ্যাঁ, স্থায়ীভাবে মুছুন"}
+      />
+
+      <ConfirmDialog
+        open={Boolean(bulkConfirm)}
+        title={bulkConfirm ? BULK[bulkConfirm].title(chosen.length) : ""}
+        message={
+          bulkConfirm
+            ? `${chosen.slice(0, 6).map((p) => p.name).join(", ")}${chosen.length > 6 ? ` এবং আরও ${chosen.length - 6}টি` : ""} — ${BULK[bulkConfirm].message}`
+            : ""
+        }
+        confirmLabel={bulkBusy ? "কাজ চলছে…" : bulkConfirm ? BULK[bulkConfirm].confirm : ""}
+        onConfirm={runBulk}
+        onClose={() => {
+          if (!bulkBusy) setBulkConfirm(null);
+        }}
       />
     </>
   );

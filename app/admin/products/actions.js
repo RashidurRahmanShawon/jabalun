@@ -192,3 +192,36 @@ export async function duplicateProduct(productId) {
   revalidatePath("/admin/products");
   return { success: true, product: data };
 }
+
+// Bulk actions from the products table (WooCommerce style):
+// "trash" (restorable), "restore" (back as draft), "delete" (permanent, only from the trash)
+const BULK_STATUS = { trash: "trash", restore: "draft" };
+
+export async function bulkProductAction(productIds, action) {
+  await requireAdmin();
+  const supabase = getSupabaseServer();
+  if (!supabase) return { error: "ডাটাবেস সংযুক্ত নেই।" };
+
+  const ids = [...new Set((Array.isArray(productIds) ? productIds : []).map(Number))];
+  if (ids.length === 0 || ids.length > 500 || !ids.every((id) => Number.isInteger(id) && id > 0)) {
+    return { error: "পণ্য নির্বাচন সঠিক নয়।" };
+  }
+
+  let result;
+  if (action === "delete") {
+    // Permanent delete only for products already in the trash
+    result = await supabase.from("products").delete().in("id", ids).eq("status", "trash").select("id, slug");
+  } else if (BULK_STATUS[action]) {
+    result = await supabase.from("products").update({ status: BULK_STATUS[action] }).in("id", ids).select();
+  } else {
+    return { error: "কাজটি সঠিক নয়।" };
+  }
+  if (result.error) return { error: result.error.message };
+
+  const rows = result.data ?? [];
+  revalidateProductPages();
+  for (const row of rows) if (row.slug) revalidatePath(`/product/${row.slug}`);
+  revalidatePath("/product/ready-hijab-all-collection");
+  revalidatePath("/product/khimar-plazu-all-collection");
+  return { success: true, count: rows.length, products: action === "delete" ? [] : rows, ids: rows.map((r) => r.id) };
+}
