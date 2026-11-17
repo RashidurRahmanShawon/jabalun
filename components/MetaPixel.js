@@ -1,10 +1,13 @@
 import Script from "next/script";
 import PixelPageView from "./PixelPageView";
 
-// Meta Pixel base code (PageView only). Purchase is sent by the WordPress plugin.
-// Renders nothing — and loads no Meta file — when NEXT_PUBLIC_META_PIXEL_ID is empty.
+// Meta Pixel base code + PageView. Purchase is sent from the thank-you page (components/PixelPurchase.js).
+// Jabalun's Pixel ID (public — it is visible in every page's code anyway). Can be overridden
+// with NEXT_PUBLIC_META_PIXEL_ID, e.g. to point a test deployment at a different pixel.
+const DEFAULT_PIXEL_ID = "1659093982543926";
+
 export default function MetaPixel() {
-  const pixelId = (process.env.NEXT_PUBLIC_META_PIXEL_ID || "").trim();
+  const pixelId = (process.env.NEXT_PUBLIC_META_PIXEL_ID || DEFAULT_PIXEL_ID).trim();
   // Pixel IDs are numeric; anything else is ignored so it can't inject into the script
   if (!/^\d+$/.test(pixelId)) return null;
 

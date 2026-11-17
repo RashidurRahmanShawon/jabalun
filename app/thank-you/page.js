@@ -3,6 +3,7 @@ import Link from "next/link";
 import { getOrder } from "@/lib/woo";
 import { decodeEntities, formatTaka } from "@/lib/text";
 import { RecentOrderRecorder } from "@/components/DuplicateWarning";
+import PixelPurchase from "@/components/PixelPurchase";
 
 // What this browser remembers for the duplicate-order warning: no name, address or phone
 function recentSummary(order) {
@@ -15,6 +16,19 @@ function recentSummary(order) {
       quantity: item.quantity,
     })),
     total: Number(order.total) || 0,
+  };
+}
+
+// Meta Pixel Purchase data: amount and product ids only (no customer details)
+function pixelPurchase(order) {
+  return {
+    number: order.number,
+    value: Number(order.total) || 0,
+    items: order.line_items.map((item) => ({
+      id: item.product_id ?? item.id,
+      quantity: Number(item.quantity) || 1,
+      price: Number(item.price) || 0,
+    })),
   };
 }
 
@@ -54,6 +68,7 @@ export default async function ThankYouPage({ searchParams }) {
       <div className="w-full max-w-lg rounded-2xl border border-neutral-200 bg-white p-6 text-center shadow-sm sm:p-8">
         {order ? (
           <>
+            <PixelPurchase purchase={pixelPurchase(order)} />
             <RecentOrderRecorder
               summary={recentSummary(order)}
               showInactiveNotice={firstValue(params.notice) === "retry"}
