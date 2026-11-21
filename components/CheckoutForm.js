@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { readSource } from "@/lib/order-source";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { isValidPhone, normalizePhone } from "@/lib/phone";
 import { formatTaka } from "@/lib/text";
 import { calcDiscount, DISCOUNT_LABEL } from "@/lib/discount";
+import { pixelTrack, productParams } from "@/lib/pixel";
 import DuplicateWarning, { isDuplicateAcknowledged, setDuplicateAcknowledged } from "@/components/DuplicateWarning";
 
 const GENERIC_ERROR = "দুঃখিত, অর্ডারটি সম্পন্ন করা যায়নি। একটু পরে আবার চেষ্টা করুন।";
@@ -95,6 +96,15 @@ export default function CheckoutForm({
   const [submitting, setSubmittingState] = useState(false);
   // Server said this phone ordered in the last 60 minutes: { orders, warningInactive }
   const [duplicate, setDuplicate] = useState(null);
+  const checkoutReported = useRef(false);
+
+  // Meta Pixel InitiateCheckout: once per form, on the first tap into a field
+  // (the form can be on screen before the visitor has decided to order)
+  function reportCheckout() {
+    if (checkoutReported.current || items.length === 0) return;
+    checkoutReported.current = true;
+    pixelTrack("InitiateCheckout", productParams(items));
+  }
 
   function setSubmitting(value) {
     setSubmittingState(value);
@@ -295,7 +305,7 @@ export default function CheckoutForm({
 
   if (layout === "split") {
     return (
-      <form onSubmit={handleSubmit} noValidate className="relative grid gap-6 lg:grid-cols-2">
+      <form onSubmit={handleSubmit} onFocus={reportCheckout} noValidate className="relative grid gap-6 lg:grid-cols-2">
         <div className={CARD}>
           <h2 className="mb-4 text-lg font-bold text-neutral-900">বিলিং তথ্য</h2>
           {fields}
@@ -326,7 +336,7 @@ export default function CheckoutForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} noValidate className="relative mt-5 space-y-4">
+    <form onSubmit={handleSubmit} onFocus={reportCheckout} noValidate className="relative mt-5 space-y-4">
       {fields}
       {payment}
       {submit}

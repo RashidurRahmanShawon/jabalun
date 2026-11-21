@@ -2,6 +2,7 @@ import { getCategoryBySlug, getProductsByCategory } from "@/lib/woo";
 import { decodeEntities } from "@/lib/text";
 import ProductCard from "@/components/ProductCard";
 import CollectionPicker from "./CollectionPicker";
+import PixelViewContent from "@/components/PixelViewContent";
 
 // Shared "all designs on one page" collection, used by
 // /product/ready-hijab-all-collection and /product/khimar-plazu-all-collection.
@@ -82,6 +83,7 @@ export default async function CollectionPage({ config }) {
 
   return (
     <main className="flex-1 bg-[#eef6ee]">
+      <PixelViewContent items={designs.map((d) => ({ id: d.id, price: Number(d.price) || 0 }))} name={config.tag} />
       <div className="mx-auto max-w-6xl px-4 py-8 sm:py-10">
         {designs.length > 0 ? (
           <CollectionPicker designs={pickerDesigns} title={title} price={samePrice} tag={config.tag} hijab={config.hijab} />

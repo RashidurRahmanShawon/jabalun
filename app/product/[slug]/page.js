@@ -5,6 +5,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { findProductByOldSlug, getProductBySlug, getRelatedProducts } from "@/lib/woo";
 import { decodeEntities, formatTaka, stripTags } from "@/lib/text";
 import ProductCard from "@/components/ProductCard";
+import PixelViewContent from "@/components/PixelViewContent";
 import { isDiscountProduct } from "@/lib/discount";
 import ProductActions from "./ProductActions";
 
@@ -86,6 +87,7 @@ export default async function ProductPage({ params }) {
 
   return (
     <main className="flex-1">
+      <PixelViewContent items={[{ id: product.id, price: Number(product.price) || 0 }]} name={name} />
       <div className="mx-auto max-w-6xl px-4 py-6 sm:py-10">
         <Link href="/" className="text-sm text-neutral-500 hover:text-black">
           ← হোমে ফিরে যান
