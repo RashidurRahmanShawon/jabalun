@@ -1,8 +1,8 @@
 import { cache } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { getProductBySlug, getRelatedProducts } from "@/lib/woo";
+import { notFound, permanentRedirect } from "next/navigation";
+import { findProductByOldSlug, getProductBySlug, getRelatedProducts } from "@/lib/woo";
 import { decodeEntities, formatTaka, stripTags } from "@/lib/text";
 import ProductCard from "@/components/ProductCard";
 import { isDiscountProduct } from "@/lib/discount";
@@ -46,6 +46,11 @@ async function loadRelated(product) {
   }
 }
 
+const COLLECTION_PAGES = {
+  "instant-ready-hijab": "/product/ready-hijab-all-collection",
+  "khimar-plazu-set": "/product/khimar-plazu-all-collection",
+};
+
 const HTML_CONTENT =
   "text-neutral-700 leading-relaxed [&_a]:underline [&_li]:mb-1 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:mb-3 [&_ul]:list-disc [&_ul]:pl-5";
 
@@ -56,7 +61,13 @@ export default async function ProductPage({ params }) {
     decodedSlug = decodeURIComponent(slug);
   } catch {}
   const product = await loadProduct(decodedSlug);
-  if (!product) notFound();
+  if (!product) {
+    // Old links (old site, Facebook catalog/ads): send to the same design, or to all designs of that category
+    const old = await findProductByOldSlug(decodedSlug);
+    if (old?.slug) permanentRedirect(`/product/${encodeURIComponent(old.slug)}`);
+    if (old?.category) permanentRedirect(COLLECTION_PAGES[old.category] ?? "/shop");
+    notFound();
+  }
 
   const related = await loadRelated(product);
   const name = decodeEntities(product.name);
