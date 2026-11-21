@@ -16,7 +16,7 @@ const CONFIG = {
   titleWithPrice: (price) => `সুতি হিজাব। মূল্য ${price} টাকা। ডেলিভারী চার্জ ফ্রি।`,
   titleNoPrice: "সুতি হিজাব। ডেলিভারী চার্জ ফ্রি।",
   hijab: true, // counts toward the 3+ = 10% off offer
-  more: { slug: "khimar-plazu-set", title: "আরও খিমার" },
+  more: { slug: DISCOUNT_CATEGORY_SLUG, title: "আরও রেডি হিজাব" }, // same category as this page
 };
 
 export default function ReadyHijabCollectionPage() {
